@@ -1,5 +1,5 @@
 import React from 'react';
-import { Folder, Clock, Scale, HeartPulse, Building2, BarChart2, Trash2, Plus, LayoutGrid, FileText } from 'lucide-react';
+import { Folder, Clock, Scale, HeartPulse, Building2, BarChart2, Trash2, Plus, LayoutGrid, Settings } from 'lucide-react';
 import { ViewState } from '../types';
 
 interface SidebarProps {
@@ -21,7 +21,7 @@ export default function Sidebar({ currentView, onNavigate }: SidebarProps) {
       </div>
 
       <div className="p-4">
-        <button className="w-full bg-brand-600 hover:bg-brand-700 text-white flex items-center justify-center gap-2 py-2 px-4 rounded-md font-medium text-sm transition-colors cursor-pointer">
+        <button onClick={() => onNavigate('newBatch')} className="w-full bg-brand-600 hover:bg-brand-700 text-white flex items-center justify-center gap-2 py-2 px-4 rounded-md font-medium text-sm transition-colors cursor-pointer">
           <Plus className="w-4 h-4" />
           New Batch
         </button>
@@ -56,12 +56,15 @@ export default function Sidebar({ currentView, onNavigate }: SidebarProps) {
       </nav>
 
       <div className="p-3 border-t border-slate-200 space-y-0.5">
-          <button className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors">
-            <BarChart2 className="w-4 h-4 border border-slate-400 rounded-xs" /> System Status
-          </button>
-          <button className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors">
-            <Trash2 className="w-4 h-4 text-slate-400" /> Trash
-          </button>
+        <button onClick={() => onNavigate('settings')} className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition-colors ${currentView === 'settings' ? 'bg-[#e0e7ff] text-brand-600' : 'text-slate-600 hover:bg-slate-100'}`}>
+          <Settings className="w-4 h-4" /> Settings
+        </button>
+        <button className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors">
+          <BarChart2 className="w-4 h-4 border border-slate-400 rounded-xs" /> System Status
+        </button>
+        <button className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors">
+          <Trash2 className="w-4 h-4 text-slate-400" /> Trash
+        </button>
       </div>
     </aside>
   );

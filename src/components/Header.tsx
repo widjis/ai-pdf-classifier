@@ -13,7 +13,7 @@ export default function Header({ currentView, onNavigate }: HeaderProps) {
       <div className="flex items-center gap-10 h-full">
         <h1 className="text-xl font-bold text-brand-600 tracking-tight flex items-center">PDF.AI</h1>
         <nav className="flex space-x-6 h-full">
-          {(['dashboard', 'files', 'settings'] as ViewState[]).map((tab) => (
+          {(['dashboard', 'files'] as ViewState[]).map((tab) => (
             <button
               key={tab}
               onClick={() => onNavigate(tab)}

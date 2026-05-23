@@ -1,4 +1,4 @@
-export type ViewState = 'dashboard' | 'files' | 'settings' | 'review';
+export type ViewState = 'dashboard' | 'files' | 'newBatch' | 'settings' | 'review';
 
 export interface DocumentInfo {
   id: string;

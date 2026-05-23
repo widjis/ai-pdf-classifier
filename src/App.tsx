@@ -9,6 +9,7 @@ import DashboardView from './components/DashboardView';
 import BatchProcessingView from './components/BatchProcessingView';
 import SettingsView from './components/SettingsView';
 import DocumentReviewView from './components/DocumentReviewView';
+import NewBatchView from './components/NewBatchView';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>('files');
@@ -39,6 +40,7 @@ export default function App() {
         <main className="flex-1 overflow-y-auto px-8 pt-8 pb-12 w-full h-full relative">
            {currentView === 'dashboard' && <DashboardView onReview={handleReviewFile} />}
            {currentView === 'files' && <BatchProcessingView onReview={handleReviewFile} />}
+           {currentView === 'newBatch' && <NewBatchView onCancel={() => navigateTo('files')} onStart={() => navigateTo('files')} />}
            {currentView === 'settings' && <SettingsView />}
            {currentView === 'review' && selectedFile && (
              <DocumentReviewView 
