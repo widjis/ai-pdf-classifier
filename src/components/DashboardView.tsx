@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { CloudUpload, FileText, ExternalLink, RefreshCw } from 'lucide-react';
 import { mockDocuments } from '../data';
 import { DocumentInfo } from '../types';
+import { api } from '../lib/api/client';
 
 interface DashboardViewProps {
   onReview: (file: DocumentInfo) => void;
@@ -9,11 +10,41 @@ interface DashboardViewProps {
 
 export default function DashboardView({ onReview }: DashboardViewProps) {
   const recentDocs = [mockDocuments[5], mockDocuments[6], mockDocuments[1]];
+  const [apiStatus, setApiStatus] = useState<'checking' | 'ok' | 'degraded'>('checking');
   
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const health = await api.health();
+        const db = await api.dbPing();
+        if (!cancelled) setApiStatus(health.status === 'ok' && db.ok ? 'ok' : 'degraded');
+      } catch {
+        if (!cancelled) setApiStatus('degraded');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="max-w-[1024px] w-full">
       <div className="mb-6 border-b border-slate-200 pb-4">
-        <h2 className="text-[18px] font-semibold text-slate-900 mb-0.5">Overview</h2>
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-[18px] font-semibold text-slate-900 mb-0.5">Overview</h2>
+          <div
+            className={`px-2.5 py-1 rounded text-[12px] font-semibold ${
+              apiStatus === 'ok'
+                ? 'bg-[#e2f5ec] text-[#006242]'
+                : apiStatus === 'checking'
+                  ? 'bg-slate-100 text-slate-600'
+                  : 'bg-red-50 text-red-700'
+            }`}
+          >
+            {apiStatus === 'ok' ? 'API: Connected' : apiStatus === 'checking' ? 'API: Checking…' : 'API: Unavailable'}
+          </div>
+        </div>
         <p className="text-[14px] text-slate-500">Drop files to classify or review recent activity.</p>
       </div>
 

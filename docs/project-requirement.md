@@ -377,9 +377,9 @@ Acceptance:
 ### Phase 1 — Database + Migration Strategy
 Deliverables:
 - DDL for the MVP schema (tables + indexes).
-- Backend repository layer for minimal CRUD (settings, presets, batches, documents).
+- Backend repository layer for minimal CRUD (user preferences, mapping profiles/rules, batches).
 Acceptance:
-- Settings + presets endpoints work and persist in PostgreSQL.
+- Mapping profiles/rules + user preferences endpoints work and persist in PostgreSQL.
 
 ### Phase 2 — Settings & Mappings (Real)
 Deliverables:

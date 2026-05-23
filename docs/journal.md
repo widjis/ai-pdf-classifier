@@ -26,3 +26,13 @@
 ## Changes:
 - Added initial SQL migration and seed scripts for users, mapping profiles/rules, documents, batches, classification runs, extracted fields, exports
 - Added backend migration/seed/verify scripts
+
+2026-05-23
+
+## Feature:
+- Phase 0–1 backend API
+
+## Changes:
+- Added standard backend error envelope and CORS middleware
+- Added CRUD endpoints for users, user preferences, mapping profiles/rules, and minimal batches
+- Added frontend typed API client and dashboard connectivity indicator (health + db ping)
