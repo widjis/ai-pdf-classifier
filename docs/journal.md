@@ -17,3 +17,12 @@
 
 ## Changes:
 - Added root npm scripts to run frontend+backend together (dev:all)
+
+2026-05-23
+
+## Feature:
+- Database schema (Postgres)
+
+## Changes:
+- Added initial SQL migration and seed scripts for users, mapping profiles/rules, documents, batches, classification runs, extracted fields, exports
+- Added backend migration/seed/verify scripts
