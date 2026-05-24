@@ -7,15 +7,24 @@ import { userPreferencesService } from '../service/userPreferences.service.js';
 export const userPreferencesController = {
   get: async (req: Request, res: Response) => {
     const userId = requireUuid(req.params.userId, 'userId');
+    const requester = req.authUser;
+    if (!requester) throw new ApiError({ status: 401, code: 'BAD_REQUEST', message: 'Missing token' });
+    if (requester.role !== 'admin' && requester.id !== userId) {
+      throw new ApiError({ status: 403, code: 'FORBIDDEN', message: 'Access denied' });
+    }
     const prefs = await userPreferencesService.getByUserId(userId);
     if (!prefs) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Preferences not found' });
     res.json(prefs);
   },
   put: async (req: Request, res: Response) => {
     const userId = requireUuid(req.params.userId, 'userId');
+    const requester = req.authUser;
+    if (!requester) throw new ApiError({ status: 401, code: 'BAD_REQUEST', message: 'Missing token' });
+    if (requester.role !== 'admin' && requester.id !== userId) {
+      throw new ApiError({ status: 403, code: 'FORBIDDEN', message: 'Access denied' });
+    }
     const dto = parseUpsertUserPreferencesDTO(req.body);
     const updated = await userPreferencesService.upsert(userId, dto);
     res.json(updated);
   },
 };
-

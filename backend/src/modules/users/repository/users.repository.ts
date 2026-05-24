@@ -61,4 +61,44 @@ export const usersRepository = {
     ]);
     return res.rows[0]?.exists === true;
   },
+
+  countActiveAdmins: async (): Promise<number> => {
+    const res = await pool.query<{ n: string }>("select count(*)::text as n from app_users where role = 'admin' and is_active = true");
+    const raw = res.rows[0]?.n ?? '0';
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  },
+
+  updateById: async (
+    id: string,
+    args: { displayName?: string; role?: AppUser['role']; isActive?: boolean },
+  ): Promise<AppUser | null> => {
+    const sets: string[] = [];
+    const values: unknown[] = [id];
+    let idx = 2;
+
+    if (args.displayName !== undefined) {
+      sets.push(`display_name = $${idx}`);
+      values.push(args.displayName);
+      idx += 1;
+    }
+    if (args.role !== undefined) {
+      sets.push(`role = $${idx}`);
+      values.push(args.role);
+      idx += 1;
+    }
+    if (args.isActive !== undefined) {
+      sets.push(`is_active = $${idx}`);
+      values.push(args.isActive);
+      idx += 1;
+    }
+    if (sets.length === 0) return usersRepository.getById(id);
+
+    const res = await pool.query<UserRow>(
+      `update app_users set ${sets.join(', ')} where id = $1 returning id, email, display_name, role, is_active, created_at`,
+      values,
+    );
+    const row = res.rows[0];
+    return row ? mapUser(row) : null;
+  },
 };

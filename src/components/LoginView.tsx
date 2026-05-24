@@ -10,6 +10,7 @@ const getErrorMessage = (error: unknown) => {
 };
 
 export default function LoginView({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
+  const [method, setMethod] = useState<'ldap' | 'local'>('ldap');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -25,7 +26,7 @@ export default function LoginView({ onSuccess }: { onSuccess: (user: AuthUser) =
     setIsSubmitting(true);
     setErrorMessage(null);
     try {
-      const res = await api.auth.login({ email: email.trim(), password });
+      const res = await api.auth.login({ email: email.trim(), password, method });
       authToken.set(res.token);
       onSuccess(res.user);
     } catch (error) {
@@ -128,20 +129,43 @@ export default function LoginView({ onSuccess }: { onSuccess: (user: AuthUser) =
               <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{errorMessage}</div>
             )}
 
+            <div className="mt-7 inline-flex w-full rounded-xl border border-slate-200 bg-slate-50 p-1">
+              <button
+                type="button"
+                onClick={() => setMethod('ldap')}
+                disabled={isSubmitting}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                  method === 'ldap' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-white/60'
+                }`}
+              >
+                Corporate (LDAP)
+              </button>
+              <button
+                type="button"
+                onClick={() => setMethod('local')}
+                disabled={isSubmitting}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                  method === 'local' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-white/60'
+                }`}
+              >
+                Local Admin
+              </button>
+            </div>
+
             <form onSubmit={(e) => void onSubmit(e)} className="mt-7 space-y-5">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5" htmlFor="login_email">
-                  Corporate email
+                  {method === 'ldap' ? 'Corporate email' : 'Email'}
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     id="login_email"
-                    type="email"
+                    type={method === 'ldap' ? 'email' : 'text'}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@company.com"
-                    autoComplete="username"
+                    placeholder={method === 'ldap' ? 'name@company.com' : 'mti.admin'}
+                    autoComplete={method === 'ldap' ? 'username' : 'username'}
                     className="w-full pl-9 pr-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15 text-slate-900 placeholder-slate-400 bg-slate-50/60 transition-colors"
                   />
                 </div>
@@ -193,13 +217,20 @@ export default function LoginView({ onSuccess }: { onSuccess: (user: AuthUser) =
               </button>
             </form>
 
+            {method === 'local' && (
+              <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[12px] text-slate-600 leading-relaxed">
+                Local login is restricted to admin accounts provisioned by configuration.
+              </div>
+            )}
+
             <div className="mt-7 flex items-start justify-between gap-6 text-xs text-slate-500">
               <div className="leading-relaxed">
                 No account? Contact your administrator to provision access.
               </div>
               <div className="hidden sm:flex flex-col items-end gap-1 text-[11px] text-slate-400">
                 <div className="font-semibold text-slate-500">Support</div>
-                <div className="font-mono">it-helpdesk@company</div>
+                <div className="font-mono">mti.icthelpdesk@merdekabattery.com</div>
+                <div className="text-[10px] font-semibold tracking-wide text-slate-400">PT. Merdeka Tsingshan Indonesia</div>
               </div>
             </div>
           </div>

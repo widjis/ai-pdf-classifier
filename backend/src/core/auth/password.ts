@@ -21,14 +21,32 @@ const timingSafeEqualString = (a: string, b: string) => {
   return crypto.timingSafeEqual(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
 };
 
+const scryptAsync = (password: string, salt: Buffer, keyLen: number, params: ScryptParams): Promise<Buffer> => {
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(
+      password,
+      salt,
+      keyLen,
+      {
+        cost: params.N,
+        blockSize: params.r,
+        parallelization: params.p,
+        maxmem: params.maxmem,
+      },
+      (err, derivedKey) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(derivedKey);
+      },
+    );
+  });
+};
+
 export const hashPassword = async (password: string): Promise<{ passwordHash: string; salt: string; params: ScryptParams }> => {
   const salt = crypto.randomBytes(16).toString('base64');
-  const key = (await crypto.scrypt(password, Buffer.from(salt, 'base64'), DEFAULT_PARAMS.keyLen, {
-    N: DEFAULT_PARAMS.N,
-    r: DEFAULT_PARAMS.r,
-    p: DEFAULT_PARAMS.p,
-    maxmem: DEFAULT_PARAMS.maxmem,
-  })) as Buffer;
+  const key = await scryptAsync(password, Buffer.from(salt, 'base64'), DEFAULT_PARAMS.keyLen, DEFAULT_PARAMS);
 
   return {
     passwordHash: key.toString('base64'),
@@ -43,12 +61,7 @@ export const verifyPassword = async (args: {
   passwordHash: string;
   params: ScryptParams;
 }): Promise<boolean> => {
-  const key = (await crypto.scrypt(args.password, Buffer.from(args.salt, 'base64'), args.params.keyLen, {
-    N: args.params.N,
-    r: args.params.r,
-    p: args.params.p,
-    maxmem: args.params.maxmem,
-  })) as Buffer;
+  const key = await scryptAsync(args.password, Buffer.from(args.salt, 'base64'), args.params.keyLen, args.params);
 
   const computed = key.toString('base64');
   return timingSafeEqualString(computed, args.passwordHash);

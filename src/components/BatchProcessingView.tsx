@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Download, FileText, RefreshCw, Tag, X } from 'lucide-react';
 import { ApiClientError, api, apiBaseUrl } from '../lib/api/client';
-import type { Batch, BatchDocumentDetails, BatchDocumentListItem, BatchSummary, ExportInfo, MappingRule } from '../lib/api/types';
+import type { Batch, BatchDocumentDetails, BatchDocumentFieldsKey, BatchDocumentListItem, BatchSummary, ExportInfo, MappingRule } from '../lib/api/types';
 import { DocumentInfo } from '../types';
 
 interface BatchProcessingViewProps {
@@ -32,6 +32,26 @@ const formatBytes = (sizeBytes: number) => {
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
 const getStringArray = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+
+const REVIEW_FIELD_KEYS: BatchDocumentFieldsKey[] = ['requester', 'personName', 'documentNumber', 'documentDate', 'organization', 'notes'];
+
+const REVIEW_FIELD_LABEL: Record<BatchDocumentFieldsKey, string> = {
+  requester: 'Requester',
+  personName: 'Person name',
+  documentNumber: 'Document number',
+  documentDate: 'Document date',
+  organization: 'Organization',
+  notes: 'Notes',
+};
+
+const emptyReviewFields = (): Record<BatchDocumentFieldsKey, string> => ({
+  requester: '',
+  personName: '',
+  documentNumber: '',
+  documentDate: '',
+  organization: '',
+  notes: '',
+});
 
 type AllBatchesDocumentRow = BatchDocumentListItem & {
   batchId: string;
@@ -76,6 +96,9 @@ export default function BatchProcessingView({
   const [reviewingBatchId, setReviewingBatchId] = useState<string | null>(null);
   const [reviewDetails, setReviewDetails] = useState<BatchDocumentDetails | null>(null);
   const [reviewCategory, setReviewCategory] = useState<string>('');
+  const [reviewCategorySaved, setReviewCategorySaved] = useState<string>('');
+  const [reviewFields, setReviewFields] = useState<Record<BatchDocumentFieldsKey, string>>(emptyReviewFields);
+  const [reviewFieldsSaved, setReviewFieldsSaved] = useState<Record<BatchDocumentFieldsKey, string>>(emptyReviewFields);
   const [isReviewLoading, setIsReviewLoading] = useState(false);
   const [isReviewSaving, setIsReviewSaving] = useState(false);
 
@@ -239,6 +262,9 @@ export default function BatchProcessingView({
     setReviewingBatchId(null);
     setReviewDetails(null);
     setReviewCategory('');
+    setReviewCategorySaved('');
+    setReviewFields(emptyReviewFields());
+    setReviewFieldsSaved(emptyReviewFields());
   };
 
   const closeBulkCategory = () => {
@@ -367,6 +393,21 @@ export default function BatchProcessingView({
       const details = await api.batches.getDocument(targetBatchId, batchDocumentId);
       setReviewDetails(details);
       setReviewCategory(details.finalCategory ?? '');
+      setReviewCategorySaved(details.finalCategory ?? '');
+
+      const initial = emptyReviewFields();
+      const payload = details.responseJson ?? null;
+      if (payload && isRecord(payload)) {
+        const fieldsRaw = payload.fields;
+        if (isRecord(fieldsRaw)) {
+          for (const k of REVIEW_FIELD_KEYS) {
+            const v = fieldsRaw[k];
+            initial[k] = typeof v === 'string' ? v : '';
+          }
+        }
+      }
+      setReviewFields(initial);
+      setReviewFieldsSaved(initial);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
       closeReview();
@@ -375,13 +416,54 @@ export default function BatchProcessingView({
     }
   };
 
-  const saveCategory = async () => {
+  const hasReviewDirtyChanges = useMemo(() => {
+    const catDirty = reviewCategory.trim() !== reviewCategorySaved.trim();
+    const fieldsDirty = REVIEW_FIELD_KEYS.some((k) => (reviewFields[k] ?? '') !== (reviewFieldsSaved[k] ?? ''));
+    return catDirty || fieldsDirty;
+  }, [reviewCategory, reviewCategorySaved, reviewFields, reviewFieldsSaved]);
+
+  const saveReview = async () => {
     if (!reviewingBatchId || !reviewingId) return;
+    if (!hasReviewDirtyChanges) return;
     if (reviewCategory.trim().length === 0) return;
     setIsReviewSaving(true);
+    setErrorMessage(null);
     try {
-      const updated = await api.batches.updateDocumentCategory(reviewingBatchId, reviewingId, { category: reviewCategory.trim() });
-      setReviewDetails(updated);
+      const categoryDirty = reviewCategory.trim() !== reviewCategorySaved.trim();
+      const fieldsDirty = REVIEW_FIELD_KEYS.some((k) => (reviewFields[k] ?? '') !== (reviewFieldsSaved[k] ?? ''));
+
+      if (categoryDirty) {
+        await api.batches.updateDocumentCategory(reviewingBatchId, reviewingId, { category: reviewCategory.trim() });
+      }
+
+      if (fieldsDirty) {
+        const fieldsPayload: Partial<Record<BatchDocumentFieldsKey, string | null>> = {};
+        for (const k of REVIEW_FIELD_KEYS) {
+          const v = (reviewFields[k] ?? '').trim();
+          fieldsPayload[k] = v.length > 0 ? v : null;
+        }
+        await api.batches.updateDocumentFields(reviewingBatchId, reviewingId, { fields: fieldsPayload });
+      }
+
+      const refreshed = await api.batches.getDocument(reviewingBatchId, reviewingId);
+      setReviewDetails(refreshed);
+      setReviewCategory(refreshed.finalCategory ?? '');
+      setReviewCategorySaved(refreshed.finalCategory ?? '');
+
+      const next = emptyReviewFields();
+      const payload = refreshed.responseJson ?? null;
+      if (payload && isRecord(payload)) {
+        const fieldsRaw = payload.fields;
+        if (isRecord(fieldsRaw)) {
+          for (const k of REVIEW_FIELD_KEYS) {
+            const v = fieldsRaw[k];
+            next[k] = typeof v === 'string' ? v : '';
+          }
+        }
+      }
+      setReviewFields(next);
+      setReviewFieldsSaved(next);
+
       if (batchId && batchId === reviewingBatchId) await refreshBatch({ silent: true });
       else await refreshAllDocuments({ silent: true });
     } catch (error) {
@@ -393,6 +475,8 @@ export default function BatchProcessingView({
 
   const approve = async () => {
     if (!reviewingBatchId || !reviewingId) return;
+    if (hasReviewDirtyChanges) return;
+    if (reviewCategory.trim().length === 0) return;
     setIsReviewSaving(true);
     try {
       const updated = await api.batches.approveDocument(reviewingBatchId, reviewingId);
@@ -848,7 +932,7 @@ export default function BatchProcessingView({
                   <iframe
                     title="PDF Preview"
                     className="w-full h-full"
-                    src={`${apiBaseUrl}/api/batches/${encodeURIComponent(reviewingBatchId)}/documents/${encodeURIComponent(reviewingId)}/file`}
+                    src={`${apiBaseUrl}/api/batches/${encodeURIComponent(reviewingBatchId)}/documents/${encodeURIComponent(reviewingId)}/file#pagemode=none&navpanes=0&zoom=page-width`}
                   />
                 )}
               </div>
@@ -873,8 +957,8 @@ export default function BatchProcessingView({
                     <div className="mt-2 flex gap-2">
                       <button
                         type="button"
-                        onClick={() => void saveCategory()}
-                        disabled={isReviewLoading || isReviewSaving || reviewCategory.trim().length === 0}
+                        onClick={() => void saveReview()}
+                        disabled={isReviewLoading || isReviewSaving || reviewCategory.trim().length === 0 || !hasReviewDirtyChanges}
                         className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded text-slate-700 hover:bg-slate-50 transition-colors text-sm font-semibold disabled:opacity-50"
                       >
                         Save
@@ -882,12 +966,23 @@ export default function BatchProcessingView({
                       <button
                         type="button"
                         onClick={() => void approve()}
-                        disabled={isReviewLoading || isReviewSaving || (reviewDetails?.status === 'approved')}
+                        disabled={
+                          isReviewLoading ||
+                          isReviewSaving ||
+                          reviewCategory.trim().length === 0 ||
+                          hasReviewDirtyChanges ||
+                          reviewDetails?.status === 'approved'
+                        }
                         className="flex-1 px-3 py-2 bg-brand-600 rounded text-white hover:bg-brand-700 transition-colors text-sm font-semibold disabled:opacity-50"
                       >
                         Approve
                       </button>
                     </div>
+                    {hasReviewDirtyChanges && (
+                      <div className="mt-2 text-[12px] text-slate-500 font-medium">
+                        Save changes before approving.
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 text-sm">
@@ -903,43 +998,37 @@ export default function BatchProcessingView({
                     </div>
                   </div>
 
-                  {(() => {
-                    const payload = reviewDetails?.responseJson ?? null;
-                    if (!payload || !isRecord(payload)) return null;
-                    const fieldsRaw = payload.fields;
-                    const fields = isRecord(fieldsRaw) ? fieldsRaw : null;
-                    if (!fields || Object.keys(fields).length === 0) return null;
-                    const requester =
-                      typeof fields.requester === 'string'
-                        ? fields.requester
-                        : typeof fields.requesterName === 'string'
-                          ? fields.requesterName
-                          : typeof fields.personName === 'string'
-                            ? fields.personName
-                            : null;
-                    return (
-                      <div>
-                        <div className="text-[11px] font-semibold text-slate-400 tracking-widest uppercase mb-2">Extracted Fields</div>
-                        {requester && (
-                          <div className="mb-2 text-[13px] text-slate-700">
-                            <span className="font-semibold">Requester:</span> {requester}
-                          </div>
-                        )}
-                        <div className="border border-slate-200 rounded overflow-hidden bg-white">
-                          <table className="w-full text-left text-[13px]">
-                            <tbody className="divide-y divide-slate-100">
-                              {Object.entries(fields).map(([k, v]) => (
-                                <tr key={k}>
-                                  <td className="py-2 px-3 text-slate-500 font-semibold w-[140px] border-r border-slate-100">{k}</td>
-                                  <td className="py-2 px-3 text-slate-900 font-medium break-words">{typeof v === 'string' ? v : v === null ? '—' : JSON.stringify(v)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                  <div>
+                    <div className="text-[11px] font-semibold text-slate-400 tracking-widest uppercase mb-2">Metadata</div>
+                    <div className="space-y-3">
+                      {REVIEW_FIELD_KEYS.map((k) => (
+                        <div key={k} className="flex flex-col gap-1">
+                          <label className="text-[12px] font-semibold text-slate-600" htmlFor={`review_field_${k}`}>
+                            {REVIEW_FIELD_LABEL[k]}
+                          </label>
+                          {k === 'notes' ? (
+                            <textarea
+                              id={`review_field_${k}`}
+                              rows={3}
+                              value={reviewFields[k]}
+                              onChange={(e) => setReviewFields((prev) => ({ ...prev, [k]: e.target.value }))}
+                              disabled={isReviewLoading || isReviewSaving}
+                              className="w-full resize-none px-3 py-2 border border-slate-200 rounded text-sm bg-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-slate-800 placeholder-slate-400"
+                            />
+                          ) : (
+                            <input
+                              id={`review_field_${k}`}
+                              type="text"
+                              value={reviewFields[k]}
+                              onChange={(e) => setReviewFields((prev) => ({ ...prev, [k]: e.target.value }))}
+                              disabled={isReviewLoading || isReviewSaving}
+                              className="w-full px-3 py-2 border border-slate-200 rounded text-sm bg-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-slate-800 placeholder-slate-400"
+                            />
+                          )}
                         </div>
-                      </div>
-                    );
-                  })()}
+                      ))}
+                    </div>
+                  </div>
 
                   {(() => {
                     const payload = reviewDetails?.responseJson ?? null;

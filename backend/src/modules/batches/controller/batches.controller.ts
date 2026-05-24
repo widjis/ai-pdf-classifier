@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { ApiError } from '../../../core/http/apiError.js';
 import { requireEnum, requireInt, requireString, requireUuid } from '../../../core/validation/validators.js';
 import { parseCreateBatchDTO } from '../dto/createBatch.dto.js';
+import { parseUpdateDocumentFieldsDTO } from '../dto/updateDocumentFields.dto.js';
 import { batchesService } from '../service/batches.service.js';
 
 const EXPORT_ORDER_BY = ['created_at', 'filename'] as const;
@@ -49,6 +50,12 @@ export const batchesController = {
     const batchDocumentId = requireUuid(req.params.batchDocumentId, 'batchDocumentId');
     const category = requireString((req.body as Record<string, unknown>).category, 'category');
     res.json(await batchesService.updateDocumentCategory({ batchId, batchDocumentId, category }));
+  },
+  updateDocumentFields: async (req: Request, res: Response) => {
+    const batchId = requireUuid(req.params.id, 'id');
+    const batchDocumentId = requireUuid(req.params.batchDocumentId, 'batchDocumentId');
+    const dto = parseUpdateDocumentFieldsDTO(req.body);
+    res.json(await batchesService.updateDocumentFields({ batchId, batchDocumentId, fields: dto.fields }));
   },
   approveDocument: async (req: Request, res: Response) => {
     const batchId = requireUuid(req.params.id, 'id');

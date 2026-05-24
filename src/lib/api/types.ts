@@ -38,6 +38,8 @@ export type LoginResponse = {
   user: AuthUser;
 };
 
+export type LoginMethod = 'ldap' | 'local';
+
 export type MeResponse = {
   user: AuthUser;
 };
@@ -48,6 +50,46 @@ export type AppUser = {
   displayName: string;
   role: 'admin' | 'reviewer' | 'operator';
   isActive: boolean;
+  createdAt: string;
+};
+
+export type CreateUserInput = {
+  email: string;
+  displayName: string;
+  role: AppUser['role'];
+};
+
+export type UpdateUserInput = {
+  displayName?: string;
+  role?: AppUser['role'];
+  isActive?: boolean;
+};
+
+export type LdapDirectoryUser = {
+  email: string;
+  displayName: string;
+};
+
+export type ProvisionLdapUserInput = {
+  identity: string;
+  role: AppUser['role'];
+};
+
+export type AuditEventAction = 'users.create' | 'users.update' | 'users.reset_local_password';
+
+export type AuditEvent = {
+  id: string;
+  actorUserId: string | null;
+  actorDisplayName: string | null;
+  actorEmail: string | null;
+  targetUserId: string | null;
+  targetDisplayName: string | null;
+  targetEmail: string | null;
+  action: AuditEventAction;
+  before: unknown | null;
+  after: unknown | null;
+  ip: string | null;
+  userAgent: string | null;
   createdAt: string;
 };
 
@@ -193,6 +235,12 @@ export type BatchDocumentDetails = {
   finalConfidence: number | null;
   createdAt: string;
   responseJson: unknown | null;
+};
+
+export type BatchDocumentFieldsKey = 'documentNumber' | 'personName' | 'documentDate' | 'organization' | 'notes' | 'requester';
+
+export type UpdateBatchDocumentFieldsInput = {
+  fields: Partial<Record<BatchDocumentFieldsKey, string | null>>;
 };
 
 export type BulkActionResponse = {

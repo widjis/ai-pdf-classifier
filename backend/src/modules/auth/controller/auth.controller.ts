@@ -13,7 +13,7 @@ const getBearerToken = (req: Request): string | null => {
 export const authController = {
   login: async (req: Request, res: Response) => {
     const dto = parseLoginDTO(req.body);
-    const result = await authService.loginWithEmail(dto.email, dto.password);
+    const result = await authService.loginWithEmail({ email: dto.email, password: dto.password, method: dto.method });
     res.json(result);
   },
 

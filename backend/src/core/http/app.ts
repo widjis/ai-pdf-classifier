@@ -8,6 +8,7 @@ import mappingRulesRoutes from '../../modules/mappings/routes/mappingRules.route
 import batchesRoutes from '../../modules/batches/routes/batches.routes.js';
 import aiConfigRoutes from '../../modules/aiConfig/routes/aiConfig.routes.js';
 import authRoutes from '../../modules/auth/routes/auth.routes.js';
+import auditRoutes from '../../modules/audit/routes/audit.routes.js';
 import { corsMiddleware } from './cors.js';
 import { errorMiddleware, notFoundMiddleware } from './errorMiddleware.js';
 
@@ -26,6 +27,7 @@ export const createApp = () => {
   app.use('/api/batches', batchesRoutes);
   app.use('/api/ai-config', aiConfigRoutes);
   app.use('/api/auth', authRoutes);
+  app.use('/api/audit-events', auditRoutes);
 
   app.use(notFoundMiddleware);
   app.use(errorMiddleware);

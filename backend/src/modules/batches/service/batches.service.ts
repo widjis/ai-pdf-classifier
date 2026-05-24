@@ -423,6 +423,21 @@ export const batchesService = {
     return batchesService.getDocumentDetails({ batchId: args.batchId, batchDocumentId: args.batchDocumentId });
   },
 
+  updateDocumentFields: async (args: {
+    batchId: string;
+    batchDocumentId: string;
+    fields: Partial<Record<'documentNumber' | 'personName' | 'documentDate' | 'organization' | 'notes' | 'requester', string | null>>;
+  }) => {
+    const details = await batchesRepository.getBatchDocumentDetails({ batchId: args.batchId, batchDocumentId: args.batchDocumentId });
+    if (!details) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Batch document not found' });
+    const updated = await batchesRepository.updateLatestClassificationRunFields({
+      batchDocumentId: args.batchDocumentId,
+      fields: args.fields,
+    });
+    if (!updated) throw new ApiError({ status: 409, code: 'CONFLICT', message: 'No classification run exists for this document yet' });
+    return batchesService.getDocumentDetails({ batchId: args.batchId, batchDocumentId: args.batchDocumentId });
+  },
+
   approveDocument: async (args: { batchId: string; batchDocumentId: string }) => {
     const details = await batchesRepository.getBatchDocumentDetails({ batchId: args.batchId, batchDocumentId: args.batchDocumentId });
     if (!details) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Batch document not found' });

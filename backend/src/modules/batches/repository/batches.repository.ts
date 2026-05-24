@@ -290,6 +290,27 @@ export const batchesRepository = {
     };
   },
 
+  updateLatestClassificationRunFields: async (args: {
+    batchDocumentId: string;
+    fields: Partial<Record<'documentNumber' | 'personName' | 'documentDate' | 'organization' | 'notes' | 'requester', string | null>>;
+  }): Promise<boolean> => {
+    const fieldsJson = JSON.stringify(args.fields ?? {});
+    const res = await pool.query(
+      `with latest as (
+         select id
+         from classification_runs
+         where batch_document_id = $1
+         order by created_at desc
+         limit 1
+       )
+       update classification_runs
+       set response_json = jsonb_set(coalesce(response_json, '{}'::jsonb), '{fields}', $2::jsonb, true)
+       where id in (select id from latest)`,
+      [args.batchDocumentId, fieldsJson],
+    );
+    return (res.rowCount ?? 0) > 0;
+  },
+
   approveBatchDocument: async (args: { batchDocumentId: string }): Promise<void> => {
     await pool.query(
       `update batch_documents

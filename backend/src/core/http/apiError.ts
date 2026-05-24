@@ -1,7 +1,10 @@
 export type ApiErrorCode =
   | 'BAD_REQUEST'
+  | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'CONFLICT'
+  | 'LDAP_SEARCH_FAILED'
+  | 'LDAP_LOOKUP_FAILED'
   | 'INTERNAL_ERROR';
 
 export class ApiError extends Error {
@@ -16,4 +19,3 @@ export class ApiError extends Error {
     this.details = args.details;
   }
 }
-

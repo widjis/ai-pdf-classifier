@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Layers3, Plus } from 'lucide-react';
 import { ApiClientError, api } from '../lib/api/client';
-import type { AiProvider, AiProviderKeyStatus, AnchorOverride, MappingProfile, MappingRule } from '../lib/api/types';
+import type { AiProvider, AiProviderKeyStatus, AnchorOverride, AuthUser, MappingProfile, MappingRule } from '../lib/api/types';
+import ManageUsersView from './ManageUsersView';
 
 const SETTINGS_KEY = 'ai-pdf-classifier.settings';
 
@@ -31,10 +32,12 @@ const getActiveProfiles = (profiles: MappingProfile[]) => {
   return activeProfiles.length > 0 ? activeProfiles : profiles;
 };
 
-type SettingsSection = 'general' | 'aiConfiguration';
+type SettingsSection = 'general' | 'aiConfiguration' | 'manageUsers';
 
-export default function SettingsView({ section = 'general' }: { section?: SettingsSection }) {
-  return section === 'aiConfiguration' ? <AiConfigurationView /> : <SettingsGeneralView />;
+export default function SettingsView({ authUser, section = 'general' }: { authUser: AuthUser; section?: SettingsSection }) {
+  if (section === 'aiConfiguration') return <AiConfigurationView />;
+  if (section === 'manageUsers') return <ManageUsersView authUser={authUser} />;
+  return <SettingsGeneralView authUser={authUser} />;
 }
 
 function AiConfigurationView() {
@@ -238,8 +241,8 @@ function AiConfigurationView() {
   );
 }
 
-function SettingsGeneralView() {
-  const [activeUserId, setActiveUserId] = useState<string | null>(null);
+function SettingsGeneralView({ authUser }: { authUser: AuthUser }) {
+  const [activeUserId, setActiveUserId] = useState<string | null>(authUser.id);
   const [mappingProfiles, setMappingProfiles] = useState<MappingProfile[]>([]);
   const [defaultMappingProfileId, setDefaultMappingProfileId] = useState('');
   const [selectedProfileId, setSelectedProfileId] = useState('');
@@ -306,11 +309,9 @@ function SettingsGeneralView() {
       setErrorMessage(null);
 
       try {
-        const [users, profiles] = await Promise.all([api.users.list(), api.mappingProfiles.list()]);
+        const profiles = await api.mappingProfiles.list();
         const nextProfiles = getActiveProfiles(profiles);
-        const activeUser = users.find((user) => user.isActive) ?? users[0];
 
-        if (!activeUser) throw new Error('No active user is available to load settings.');
         if (nextProfiles.length === 0) throw new Error('No mapping presets are available in the database.');
 
         let profileId = nextProfiles[0].id;
@@ -318,7 +319,7 @@ function SettingsGeneralView() {
         let model = AI_MODELS.gemini[0].value;
 
         try {
-          const prefs = await api.userPreferences.get(activeUser.id);
+          const prefs = await api.userPreferences.get(authUser.id);
           if (prefs.defaultMappingProfileId && nextProfiles.some((profile) => profile.id === prefs.defaultMappingProfileId)) {
             profileId = prefs.defaultMappingProfileId;
           }
@@ -330,7 +331,7 @@ function SettingsGeneralView() {
 
         if (cancelled) return;
 
-        setActiveUserId(activeUser.id);
+        setActiveUserId(authUser.id);
         setMappingProfiles(nextProfiles);
         setDefaultMappingProfileId(profileId);
         setSelectedProfileId(profileId);
@@ -349,7 +350,7 @@ function SettingsGeneralView() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authUser.id]);
 
   useEffect(() => {
     if (!selectedProfileId) return;

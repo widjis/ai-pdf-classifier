@@ -6,6 +6,7 @@ import multer from 'multer';
 import { asyncHandler } from '../../../core/http/asyncHandler.js';
 import { ApiError } from '../../../core/http/apiError.js';
 import { env } from '../../../core/config/env.js';
+import { requireAuth } from '../../../core/http/authGuards.js';
 import { batchesController } from '../controller/batches.controller.js';
 
 const router = Router();
@@ -57,6 +58,7 @@ router.post('/:id/documents/bulk-category', asyncHandler(batchesController.bulkS
 router.get('/:id/documents/:batchDocumentId', asyncHandler(batchesController.getDocument));
 router.get('/:id/documents/:batchDocumentId/file', asyncHandler(batchesController.downloadDocumentFile));
 router.patch('/:id/documents/:batchDocumentId', asyncHandler(batchesController.updateDocumentCategory));
+router.patch('/:id/documents/:batchDocumentId/fields', requireAuth, asyncHandler(batchesController.updateDocumentFields));
 router.post('/:id/documents/:batchDocumentId/approve', asyncHandler(batchesController.approveDocument));
 router.post('/:id/start', asyncHandler(batchesController.start));
 router.get('/:id/export', asyncHandler(batchesController.getLatestExport));

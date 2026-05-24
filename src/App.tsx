@@ -24,7 +24,13 @@ export default function App() {
   const [isAuthBootstrapping, setIsAuthBootstrapping] = useState(true);
   // Pre-load the document review doc to simplify debugging if navigating directly
 
-  const navigateTo = (view: ViewState) => setCurrentView(view);
+  const navigateTo = (view: ViewState) => {
+    if (view === 'manageUsers' && authUser?.role !== 'admin') {
+      setCurrentView('settings');
+      return;
+    }
+    setCurrentView(view);
+  };
   
   const handleReviewFile = (file: DocumentInfo) => {
     setSelectedFile(file);
@@ -69,8 +75,16 @@ export default function App() {
 
   if (isAuthBootstrapping) {
     return (
-      <div className="min-h-screen w-full bg-[#f7f9fb] flex items-center justify-center text-slate-600">
-        Loading...
+      <div className="min-h-screen w-full relative isolate overflow-hidden bg-slate-950 flex items-center justify-center px-4 py-12">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(148,163,184,0.25)_1px,transparent_0)] [background-size:28px_28px] opacity-60" />
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(0,83,219,0.22),transparent_38%,rgba(16,185,129,0.18))]" />
+          <div className="absolute -top-36 -left-40 w-[520px] h-[520px] bg-brand-600/25 rounded-full blur-[120px]" />
+          <div className="absolute -bottom-40 -right-44 w-[560px] h-[560px] bg-emerald-500/20 rounded-full blur-[130px]" />
+        </div>
+        <div className="relative rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white/75 backdrop-blur-xl">
+          Loading…
+        </div>
       </div>
     );
   }
@@ -87,58 +101,71 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-[#f7f9fb] font-sans text-slate-900 overflow-hidden">
-      <Sidebar
-        currentView={currentView}
-        onNavigate={navigateTo}
-        activeCategory={activeCategory}
-        onSelectCategory={(category) => {
-          setActiveCategory(category);
-          setActiveBatchId(null);
-          navigateTo('files');
-        }}
-      />
-      
-      <div className="flex-1 flex flex-col min-w-0 bg-white/50 h-full">
-        {currentView !== 'review' && (
-          <Header currentView={currentView} onNavigate={navigateTo} />
-        )}
-        
-        <main className="flex-1 overflow-y-auto px-8 pt-8 pb-12 w-full h-full relative">
-           {currentView === 'dashboard' && <DashboardView onReview={handleReviewFile} onCreateBatch={handleCreateBatchFromDashboard} />}
-           {currentView === 'files' && (
-             <BatchProcessingView
-               onReview={handleReviewFile}
-               activeBatchId={activeBatchId}
-               categoryFilter={activeCategory}
-               onClearCategoryFilter={() => setActiveCategory(null)}
-             />
-           )}
-           {currentView === 'newBatch' && (
-             <NewBatchView
-               initialFiles={pendingNewBatchFiles}
-               onCancel={() => {
-                 setPendingNewBatchFiles([]);
-                 navigateTo('files');
-               }}
-               onStart={({ batchId }) => {
-                 setPendingNewBatchFiles([]);
-                 setActiveBatchId(batchId);
-                  setActiveCategory(null);
-                 navigateTo('files');
-               }}
-             />
-           )}
-           {currentView === 'settings' && <SettingsView section="general" />}
-           {currentView === 'aiConfiguration' && <SettingsView section="aiConfiguration" />}
-           {currentView === 'review' && selectedFile && (
-             <DocumentReviewView 
-               file={selectedFile} 
-               onBack={() => navigateTo('files')} 
-               onApprove={handleApprove}
-             />
-           )}
-        </main>
+    <div className="min-h-screen w-full relative isolate overflow-hidden bg-slate-950 px-4 py-6 font-sans text-slate-900">
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(148,163,184,0.25)_1px,transparent_0)] [background-size:28px_28px] opacity-60" />
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(0,83,219,0.22),transparent_38%,rgba(16,185,129,0.18))]" />
+        <div className="absolute -top-36 -left-40 w-[520px] h-[520px] bg-brand-600/25 rounded-full blur-[120px]" />
+        <div className="absolute -bottom-40 -right-44 w-[560px] h-[560px] bg-emerald-500/20 rounded-full blur-[130px]" />
+      </div>
+
+      <div className="relative mx-auto h-[calc(100vh-48px)] w-full max-w-[1480px] rounded-3xl overflow-hidden border border-white/10 bg-white/5 shadow-[0_30px_120px_-45px_rgba(0,0,0,0.85)] backdrop-blur-xl">
+        <div className="flex h-full overflow-hidden">
+          <Sidebar
+            authUser={authUser}
+            currentView={currentView}
+            onNavigate={navigateTo}
+            activeCategory={activeCategory}
+            onSelectCategory={(category) => {
+              setActiveCategory(category);
+              setActiveBatchId(null);
+              navigateTo('files');
+            }}
+          />
+
+          <div className="flex-1 flex flex-col min-w-0 bg-[#f7f9fb] h-full">
+            {currentView !== 'review' && (
+              <Header currentView={currentView} onNavigate={navigateTo} />
+            )}
+
+            <main className="flex-1 overflow-y-auto px-8 pt-8 pb-12 w-full h-full relative">
+              {currentView === 'dashboard' && <DashboardView onReview={handleReviewFile} onCreateBatch={handleCreateBatchFromDashboard} />}
+              {currentView === 'files' && (
+                <BatchProcessingView
+                  onReview={handleReviewFile}
+                  activeBatchId={activeBatchId}
+                  categoryFilter={activeCategory}
+                  onClearCategoryFilter={() => setActiveCategory(null)}
+                />
+              )}
+              {currentView === 'newBatch' && (
+                <NewBatchView
+                  initialFiles={pendingNewBatchFiles}
+                  onCancel={() => {
+                    setPendingNewBatchFiles([]);
+                    navigateTo('files');
+                  }}
+                  onStart={({ batchId }) => {
+                    setPendingNewBatchFiles([]);
+                    setActiveBatchId(batchId);
+                    setActiveCategory(null);
+                    navigateTo('files');
+                  }}
+                />
+              )}
+              {currentView === 'settings' && <SettingsView authUser={authUser} section="general" />}
+              {currentView === 'aiConfiguration' && <SettingsView authUser={authUser} section="aiConfiguration" />}
+              {currentView === 'manageUsers' && <SettingsView authUser={authUser} section="manageUsers" />}
+              {currentView === 'review' && selectedFile && (
+                <DocumentReviewView
+                  file={selectedFile}
+                  onBack={() => navigateTo('files')}
+                  onApprove={handleApprove}
+                />
+              )}
+            </main>
+          </div>
+        </div>
       </div>
     </div>
   );

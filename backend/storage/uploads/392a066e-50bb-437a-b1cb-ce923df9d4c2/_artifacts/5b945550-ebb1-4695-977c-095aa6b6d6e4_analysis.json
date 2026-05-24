@@ -1,0 +1,61 @@
+{
+  "category": "Checklist Reimburse HP",
+  "confidence": 95,
+  "fields": {
+    "documentNumber": "ICT/CRH/003",
+    "personName": "Hardiyanto",
+    "documentDate": "24/02/2024",
+    "organization": null,
+    "notes": null
+  },
+  "anchors": [
+    "CHECKLIST HANDPHONE REIMBURSEMENT",
+    "Employee Name",
+    "Department",
+    "Items for Checked",
+    "Product Description",
+    "Phone brand",
+    "Purchase date",
+    "VERIFIED BY"
+  ],
+  "meta": {
+    "mode": "vision",
+    "raw": {
+      "id": "chatcmpl-Dj0mXCIocxF2Qz9EvGJlkwsLMVANQ",
+      "object": "chat.completion",
+      "created": 1779620137,
+      "model": "gpt-4o-2024-08-06",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"category\": \"Checklist Reimburse HP\",\n  \"confidence\": 95,\n  \"fields\": {\n    \"documentNumber\": \"ICT/CRH/003\",\n    \"personName\": \"Hardiyanto\",\n    \"documentDate\": \"24/02/2024\",\n    \"organization\": null,\n    \"notes\": null\n  },\n  \"anchors\": [\n    \"CHECKLIST HANDPHONE REIMBURSEMENT\",\n    \"Employee Name\",\n    \"Department\",\n    \"Items for Checked\",\n    \"Product Description\",\n    \"Phone brand\",\n    \"Purchase date\",\n    \"VERIFIED BY\"\n  ]\n}",
+            "refusal": null,
+            "annotations": []
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 1292,
+        "completion_tokens": 129,
+        "total_tokens": 1421,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "service_tier": "default",
+      "system_fingerprint": "fp_ba157e313e"
+    },
+    "imagePath": "/Users/widjis/Documents/Projects/ai-pdf-classifier/backend/storage/uploads/392a066e-50bb-437a-b1cb-ce923df9d4c2/_artifacts/5b945550-ebb1-4695-977c-095aa6b6d6e4_page1.png"
+  }
+}

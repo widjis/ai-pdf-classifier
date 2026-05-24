@@ -4,6 +4,9 @@ import type {
   AiConfigTestResponse,
   AiProvider,
   AppUser,
+  AuditEvent,
+  CreateUserInput,
+  LdapDirectoryUser,
   Batch,
   BatchDocumentListItem,
   BatchSummary,
@@ -15,6 +18,7 @@ import type {
   HealthResponse,
   AnchorOverride,
   LoginResponse,
+  LoginMethod,
   MappingProfile,
   MappingRule,
   MeResponse,
@@ -23,8 +27,11 @@ import type {
   UpsertAnchorOverrideInput,
   UploadBatchDocumentsResponse,
   UpdateUserPreferencesInput,
+  UpdateUserInput,
+  ProvisionLdapUserInput,
   UserPreferences,
   BatchDocumentDetails,
+  UpdateBatchDocumentFieldsInput,
   BulkActionResponse,
   ExportInfo,
   QueueMetricsResponse,
@@ -97,12 +104,34 @@ export const api = {
   dbPing: () => request<DbPingResponse>('/api/db/ping'),
   dbInfo: () => request<DbInfoResponse>('/api/db/info'),
   auth: {
-    login: (body: { email: string; password: string }) =>
+    login: (body: { email: string; password: string; method?: LoginMethod }) =>
       request<LoginResponse>('/api/auth/login', { method: 'POST', body: JSON.stringify(body) }),
     me: () => request<MeResponse>('/api/auth/me'),
   },
   users: {
     list: () => request<AppUser[]>('/api/users'),
+    create: (body: CreateUserInput) =>
+      request<AppUser>('/api/users', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    ldapSearch: (query: string) =>
+      request<LdapDirectoryUser[]>(`/api/users/ldap-search?query=${encodeURIComponent(query)}`),
+    provisionLdapUser: (body: ProvisionLdapUserInput) =>
+      request<AppUser>('/api/users/ldap-provision', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    update: (id: string, body: UpdateUserInput) =>
+      request<AppUser>(`/api/users/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }),
+    resetLocalPassword: (id: string, body: { newPassword: string }) =>
+      request<void>(`/api/users/${encodeURIComponent(id)}/reset-local-password`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
   },
   userPreferences: {
     get: (userId: string) => request<UserPreferences>(`/api/user-preferences/${userId}`),
@@ -155,6 +184,9 @@ export const api = {
         method: 'DELETE',
       }),
   },
+  auditEvents: {
+    list: (limit = 100) => request<AuditEvent[]>(`/api/audit-events?limit=${encodeURIComponent(String(limit))}`),
+  },
   batches: {
     list: () => request<Batch[]>('/api/batches'),
     create: (body: CreateBatchInput) =>
@@ -169,6 +201,11 @@ export const api = {
       request<BatchDocumentDetails>(`/api/batches/${batchId}/documents/${batchDocumentId}`),
     updateDocumentCategory: (batchId: string, batchDocumentId: string, body: { category: string }) =>
       request<BatchDocumentDetails>(`/api/batches/${batchId}/documents/${batchDocumentId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    updateDocumentFields: (batchId: string, batchDocumentId: string, body: UpdateBatchDocumentFieldsInput) =>
+      request<BatchDocumentDetails>(`/api/batches/${batchId}/documents/${batchDocumentId}/fields`, {
         method: 'PATCH',
         body: JSON.stringify(body),
       }),
