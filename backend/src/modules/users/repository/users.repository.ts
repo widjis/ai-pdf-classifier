@@ -27,6 +27,24 @@ export const usersRepository = {
     return res.rows.map(mapUser);
   },
 
+  getById: async (id: string): Promise<AppUser | null> => {
+    const res = await pool.query<UserRow>(
+      'select id, email, display_name, role, is_active, created_at from app_users where id = $1',
+      [id],
+    );
+    const row = res.rows[0];
+    return row ? mapUser(row) : null;
+  },
+
+  getByEmail: async (email: string): Promise<AppUser | null> => {
+    const res = await pool.query<UserRow>(
+      'select id, email, display_name, role, is_active, created_at from app_users where email = $1',
+      [email],
+    );
+    const row = res.rows[0];
+    return row ? mapUser(row) : null;
+  },
+
   create: async (args: { email: string; displayName: string; role: AppUser['role'] }): Promise<AppUser> => {
     const res = await pool.query<UserRow>(
       'insert into app_users (email, display_name, role) values ($1, $2, $3) returning id, email, display_name, role, is_active, created_at',
@@ -44,4 +62,3 @@ export const usersRepository = {
     return res.rows[0]?.exists === true;
   },
 };
-

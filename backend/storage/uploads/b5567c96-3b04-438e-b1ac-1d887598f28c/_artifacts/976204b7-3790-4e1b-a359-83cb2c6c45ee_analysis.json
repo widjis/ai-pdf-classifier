@@ -1,0 +1,60 @@
+{
+  "category": "SRF Scan",
+  "confidence": 95,
+  "fields": {
+    "documentNumber": "MMS-ICT-FO-001",
+    "personName": "Imron Ashadi",
+    "documentDate": "20 May 2022",
+    "organization": "MTI",
+    "notes": "Request for SIM card and Mobile Phone only"
+  },
+  "anchors": [
+    "IT Service Request Form",
+    "Name : Imron Ashadi",
+    "Business Unit : MTI",
+    "Request Type",
+    "Justification for specific request",
+    "Requested By (Imron Ashadi)",
+    "Approved / Rejected by ( Rustam)",
+    "Cost code is mandatory"
+  ],
+  "meta": {
+    "mode": "text",
+    "raw": {
+      "id": "chatcmpl-DiwI0aXa1OkiaSS9nerL9qa6X3iUN",
+      "object": "chat.completion",
+      "created": 1779602868,
+      "model": "gpt-4o-2024-08-06",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"category\": \"SRF Scan\",\n  \"confidence\": 95,\n  \"fields\": {\n    \"documentNumber\": \"MMS-ICT-FO-001\",\n    \"personName\": \"Imron Ashadi\",\n    \"documentDate\": \"20 May 2022\",\n    \"organization\": \"MTI\",\n    \"notes\": \"Request for SIM card and Mobile Phone only\"\n  },\n  \"anchors\": [\n    \"IT Service Request Form\",\n    \"Name : Imron Ashadi\",\n    \"Business Unit : MTI\",\n    \"Request Type\",\n    \"Justification for specific request\",\n    \"Requested By (Imron Ashadi)\",\n    \"Approved / Rejected by ( Rustam)\",\n    \"Cost code is mandatory\"\n  ]\n}",
+            "refusal": null,
+            "annotations": []
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 578,
+        "completion_tokens": 157,
+        "total_tokens": 735,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "service_tier": "default",
+      "system_fingerprint": "fp_1e3b68831e"
+    }
+  }
+}

@@ -26,6 +26,22 @@ export type AiConfigTestResponse = {
   ok: true;
 };
 
+export type AuthUser = {
+  id: string;
+  email: string;
+  displayName: string;
+  role: 'admin' | 'reviewer' | 'operator';
+};
+
+export type LoginResponse = {
+  token: string;
+  user: AuthUser;
+};
+
+export type MeResponse = {
+  user: AuthUser;
+};
+
 export type AppUser = {
   id: string;
   email: string;
@@ -85,6 +101,23 @@ export type CreateMappingRuleInput = {
   isActive?: boolean;
 };
 
+export type AnchorOverride = {
+  id: string;
+  profileId: string;
+  category: string;
+  anchorKeywords: string[];
+  priority: number;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export type UpsertAnchorOverrideInput = {
+  category: string;
+  anchorKeywords: string[] | string;
+  priority?: number;
+  isActive?: boolean;
+};
+
 export type CreateMappingProfileInput = {
   name: string;
   description?: string;
@@ -115,15 +148,17 @@ export type Batch = {
   completedAt: string | null;
 };
 
+export type BatchTotals = {
+  total: number;
+  queued: number;
+  processing: number;
+  failed: number;
+  readyForReview: number;
+  approved: number;
+};
+
 export type BatchSummary = Batch & {
-  totals: {
-    total: number;
-    queued: number;
-    processing: number;
-    failed: number;
-    readyForReview: number;
-    approved: number;
-  };
+  totals: BatchTotals;
 };
 
 export type CreateBatchInput = {
@@ -144,6 +179,47 @@ export type BatchDocumentListItem = {
   status: BatchDocumentStatus;
   finalCategory: string | null;
   createdAt: string;
+};
+
+export type BatchDocumentDetails = {
+  batchDocumentId: string;
+  batchId: string;
+  documentId: string;
+  originalFilename: string;
+  mimeType: string | null;
+  sizeBytes: number;
+  status: BatchDocumentStatus;
+  finalCategory: string | null;
+  finalConfidence: number | null;
+  createdAt: string;
+  responseJson: unknown | null;
+};
+
+export type BulkActionResponse = {
+  updated: number;
+};
+
+export type ExportStatus = 'queued' | 'building' | 'ready' | 'failed';
+
+export type ExportInfo = {
+  id: string;
+  batchId: string;
+  status: ExportStatus;
+  outputPath: string | null;
+  sizeBytes: number | null;
+  errorMessage: string | null;
+  createdAt: string;
+  completedAt: string | null;
+};
+
+export type QueueMetricsResponse = {
+  totalDocuments: number;
+  queued: number;
+  processing: number;
+  backlogCount: number;
+  backlogRatio: number;
+  computeLoadPercent: number;
+  updatedAt: string;
 };
 
 export type RecentActivityItem = {

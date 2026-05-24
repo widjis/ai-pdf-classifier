@@ -9,9 +9,11 @@ const SETTINGS_KEY = 'ai-pdf-classifier.settings';
 interface SidebarProps {
   currentView: ViewState;
   onNavigate: (view: ViewState) => void;
+  activeCategory: string | null;
+  onSelectCategory: (category: string) => void;
 }
 
-export default function Sidebar({ currentView, onNavigate }: SidebarProps) {
+export default function Sidebar({ currentView, onNavigate, activeCategory, onSelectCategory }: SidebarProps) {
   const settingsActive = currentView === 'settings' || currentView === 'aiConfiguration';
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
@@ -98,7 +100,7 @@ export default function Sidebar({ currentView, onNavigate }: SidebarProps) {
            </div>
            <span className="text-[15px]">Classification</span>
         </div>
-        <span className="text-xs text-slate-500 font-medium">Batch v2.4 Active</span>
+        <span className="text-xs text-slate-500 font-medium">V1.0.0</span>
       </div>
 
       <div className="p-4">
@@ -134,11 +136,19 @@ export default function Sidebar({ currentView, onNavigate }: SidebarProps) {
               sortedCategories.map((category) => (
                 <button
                   key={category}
-                  onClick={() => onNavigate('files')}
-                  className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors"
+                  onClick={() => onSelectCategory(category)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition-colors ${
+                    category === activeCategory && currentView === 'files'
+                      ? 'bg-[#e0e7ff] text-brand-700'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
                   title={category}
                 >
-                  <Tag className="w-4 h-4 text-slate-400" />
+                  <Tag
+                    className={`w-4 h-4 ${
+                      category === activeCategory && currentView === 'files' ? 'text-brand-600' : 'text-slate-400'
+                    }`}
+                  />
                   <span className="truncate">{category}</span>
                 </button>
               ))}

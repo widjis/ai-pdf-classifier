@@ -10,15 +10,21 @@
     "lint": "tsc -p tsconfig.json --noEmit",
     "db:migrate": "tsx src/core/db/migrate.ts",
     "db:seed": "tsx src/core/db/seed.ts",
-    "db:verify": "tsx src/core/db/verify.ts"
+    "db:verify": "tsx src/core/db/verify.ts",
+    "analyze:examples": "tsx src/tools/analyzeExamples.ts"
   },
   "dependencies": {
+    "ldapts": "^8.0.9",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "multer": "^2.0.0",
+    "@napi-rs/canvas": "^0.1.80",
+    "pdfjs-dist": "^5.4.54",
+    "archiver": "^7.0.1",
     "pg": "^8.16.3"
   },
   "devDependencies": {
+    "@types/archiver": "^6.0.3",
     "@types/express": "^4.17.21",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.14.0",

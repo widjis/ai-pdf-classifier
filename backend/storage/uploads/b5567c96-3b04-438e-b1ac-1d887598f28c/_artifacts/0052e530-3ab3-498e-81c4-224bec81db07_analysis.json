@@ -1,0 +1,60 @@
+{
+  "category": "SRF Scan",
+  "confidence": 95,
+  "fields": {
+    "documentNumber": "MTI-HRM-ICT-FRM-002_Rev.000",
+    "personName": "Mulyono",
+    "documentDate": "26/08/2024",
+    "organization": "MTI",
+    "notes": "Request Printer Epson LX320 for Printing form 3 Play transaction with tenan Tsingshan"
+  },
+  "anchors": [
+    "Service Request Form",
+    "Name : MULYONO",
+    "Business Unit : MTI",
+    "Department : Maintenance",
+    "Location : Morowali",
+    "Type of Request: New Request",
+    "Requestor Date: 26/08/2024",
+    "Direct Manager – One Level or GM"
+  ],
+  "meta": {
+    "mode": "text",
+    "raw": {
+      "id": "chatcmpl-DiwI3xstrc2qoyOgO6CZcV2iQ9gLR",
+      "object": "chat.completion",
+      "created": 1779602871,
+      "model": "gpt-4o-2024-08-06",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"category\": \"SRF Scan\",\n  \"confidence\": 95,\n  \"fields\": {\n    \"documentNumber\": \"MTI-HRM-ICT-FRM-002_Rev.000\",\n    \"personName\": \"Mulyono\",\n    \"documentDate\": \"26/08/2024\",\n    \"organization\": \"MTI\",\n    \"notes\": \"Request Printer Epson LX320 for Printing form 3 Play transaction with tenan Tsingshan\"\n  },\n  \"anchors\": [\n    \"Service Request Form\",\n    \"Name : MULYONO\",\n    \"Business Unit : MTI\",\n    \"Department : Maintenance\",\n    \"Location : Morowali\",\n    \"Type of Request: New Request\",\n    \"Requestor Date: 26/08/2024\",\n    \"Direct Manager – One Level or GM\"\n  ]\n}",
+            "refusal": null,
+            "annotations": []
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 643,
+        "completion_tokens": 177,
+        "total_tokens": 820,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "service_tier": "default",
+      "system_fingerprint": "fp_1e3b68831e"
+    }
+  }
+}

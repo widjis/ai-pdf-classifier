@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Layers3, Plus } from 'lucide-react';
 import { ApiClientError, api } from '../lib/api/client';
-import type { AiProvider, AiProviderKeyStatus, MappingProfile, MappingRule } from '../lib/api/types';
+import type { AiProvider, AiProviderKeyStatus, AnchorOverride, MappingProfile, MappingRule } from '../lib/api/types';
 
 const SETTINGS_KEY = 'ai-pdf-classifier.settings';
 
@@ -10,10 +10,13 @@ const AI_MODELS: Record<AiProvider, Array<{ value: string; label: string }>> = {
     { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
     { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
     { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+    { value: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro Image Preview' },
   ],
   openai: [
     { value: 'gpt-4o', label: 'GPT-4o' },
     { value: 'gpt-4o-mini', label: 'GPT-4o mini' },
+    { value: 'gpt-5.4-mini', label: 'GPT-5.4 mini' },
+    { value: 'gpt-5.4-nano', label: 'GPT-5.4 nano' },
   ],
 };
 
@@ -243,19 +246,26 @@ function SettingsGeneralView() {
   const [aiProvider, setAiProvider] = useState<AiProvider>('gemini');
   const [aiModel, setAiModel] = useState('gemini-1.5-pro');
   const [prefixMappings, setPrefixMappings] = useState<MappingRule[]>([]);
+  const [anchorOverrides, setAnchorOverrides] = useState<AnchorOverride[]>([]);
   const [newSource, setNewSource] = useState('');
   const [newTargetFolder, setNewTargetFolder] = useState('');
   const [newTargetPrefix, setNewTargetPrefix] = useState('');
+  const [overrideCategory, setOverrideCategory] = useState('');
+  const [overrideKeywords, setOverrideKeywords] = useState('');
+  const [overridePriority, setOverridePriority] = useState('100');
   const [newProfileName, setNewProfileName] = useState('');
   const [newProfileDescription, setNewProfileDescription] = useState('');
   const [newProfileVersion, setNewProfileVersion] = useState('1');
   const [shouldCloneRules, setShouldCloneRules] = useState(true);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [isLoadingMappings, setIsLoadingMappings] = useState(false);
+  const [isLoadingOverrides, setIsLoadingOverrides] = useState(false);
   const [isSavingDefaults, setIsSavingDefaults] = useState(false);
   const [isAddingMapping, setIsAddingMapping] = useState(false);
+  const [isSavingOverride, setIsSavingOverride] = useState(false);
   const [isCreatingPreset, setIsCreatingPreset] = useState(false);
   const [deletingRuleId, setDeletingRuleId] = useState<string | null>(null);
+  const [deletingOverrideId, setDeletingOverrideId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const hydratedRef = useRef(false);
@@ -359,12 +369,37 @@ function SettingsGeneralView() {
       }
     };
 
+    const loadOverrides = async () => {
+      setIsLoadingOverrides(true);
+      setErrorMessage(null);
+      try {
+        const overrides = await api.mappingProfiles.getAnchorOverrides(selectedProfileId);
+        if (!cancelled) setAnchorOverrides(overrides);
+      } catch (error) {
+        if (!cancelled) setErrorMessage(getErrorMessage(error));
+      } finally {
+        if (!cancelled) setIsLoadingOverrides(false);
+      }
+    };
+
     void loadRules();
+    void loadOverrides();
 
     return () => {
       cancelled = true;
     };
   }, [selectedProfileId]);
+
+  useEffect(() => {
+    const folders = prefixMappings
+      .filter((r) => r.isActive && r.matchType === 'category')
+      .map((r) => r.targetFolder)
+      .filter((v) => v.trim().length > 0);
+    const categories = Array.from(new Set<string>(folders)).sort((a, b) => a.localeCompare(b));
+    if (overrideCategory.trim().length === 0 && categories.length > 0) {
+      setOverrideCategory(categories[0] ?? '');
+    }
+  }, [overrideCategory, prefixMappings]);
 
   useEffect(() => {
     if (!hydratedRef.current || !activeUserId || !defaultMappingProfileId || !aiModel) return;
@@ -454,6 +489,57 @@ function SettingsGeneralView() {
       setErrorMessage(getErrorMessage(error));
     } finally {
       setDeletingRuleId(null);
+    }
+  };
+
+  const saveAnchorOverride = async () => {
+    if (!selectedProfileId) return;
+    const category = overrideCategory.trim();
+    const keywords = overrideKeywords
+      .split(',')
+      .map((v) => v.trim())
+      .filter((v) => v.length > 0);
+    const priority = Number(overridePriority);
+    if (!category || keywords.length === 0 || !Number.isFinite(priority) || !Number.isInteger(priority) || priority <= 0) return;
+
+    setIsSavingOverride(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const created = await api.mappingProfiles.upsertAnchorOverride(selectedProfileId, {
+        category,
+        anchorKeywords: keywords,
+        priority,
+        isActive: true,
+      });
+      setAnchorOverrides((prev) => {
+        const next = prev.filter((o) => o.category !== created.category);
+        next.unshift(created);
+        return next;
+      });
+      setOverrideKeywords('');
+      setOverridePriority('100');
+      setSuccessMessage('Anchor override saved.');
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSavingOverride(false);
+    }
+  };
+
+  const deleteAnchorOverride = async (overrideId: string) => {
+    if (!selectedProfileId) return;
+    setDeletingOverrideId(overrideId);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      await api.mappingProfiles.deleteAnchorOverride(selectedProfileId, overrideId);
+      setAnchorOverrides((prev) => prev.filter((o) => o.id !== overrideId));
+      setSuccessMessage('Anchor override deleted.');
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setDeletingOverrideId(null);
     }
   };
 
@@ -848,6 +934,112 @@ function SettingsGeneralView() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-8 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="border-b border-slate-200 px-6 py-5">
+          <h3 className="text-[17px] font-semibold text-slate-900 mb-0.5">Anchor Overrides</h3>
+          <p className="text-[14px] text-slate-500">Force a category when specific keywords appear in extracted anchors.</p>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-slate-700" htmlFor="anchor_override_category">
+                Category (Folder)
+              </label>
+              <select
+                id="anchor_override_category"
+                value={overrideCategory}
+                onChange={(e) => setOverrideCategory(e.target.value)}
+                disabled={isBootstrapping || prefixMappings.length === 0}
+                className="w-full px-4 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-slate-800 bg-slate-50"
+              >
+                {Array.from(new Set<string>(prefixMappings.map((r) => r.targetFolder).filter((v) => v.trim().length > 0)))
+                  .sort((a, b) => a.localeCompare(b))
+                  .map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-slate-700" htmlFor="anchor_override_keywords">
+                Keywords (comma-separated)
+              </label>
+              <input
+                id="anchor_override_keywords"
+                type="text"
+                value={overrideKeywords}
+                onChange={(e) => setOverrideKeywords(e.target.value)}
+                placeholder="Example: equipment checkout form, it equipment checkout"
+                className="w-full px-4 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-slate-800 placeholder-slate-400 bg-white"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-slate-700" htmlFor="anchor_override_priority">
+                Priority
+              </label>
+              <input
+                id="anchor_override_priority"
+                type="number"
+                min="1"
+                step="1"
+                value={overridePriority}
+                onChange={(e) => setOverridePriority(e.target.value)}
+                className="w-full px-4 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-slate-800 bg-white"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={() => void saveAnchorOverride()}
+              disabled={
+                isSavingOverride ||
+                isBootstrapping ||
+                isLoadingOverrides ||
+                overrideCategory.trim().length === 0 ||
+                overrideKeywords.trim().length === 0
+              }
+              className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSavingOverride ? 'Saving...' : 'Save Override'}
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+            <div className="px-4 py-2 text-[11px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200 bg-[#f8fafc]">
+              Overrides
+            </div>
+            <div className="divide-y divide-slate-200">
+              {isLoadingOverrides && <div className="px-4 py-3 text-sm text-slate-600">Loading overrides...</div>}
+              {!isLoadingOverrides && anchorOverrides.length === 0 && (
+                <div className="px-4 py-3 text-sm text-slate-600">No overrides configured.</div>
+              )}
+              {anchorOverrides.map((o) => (
+                <div key={o.id} className="px-4 py-3 flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-slate-800">{o.category}</div>
+                    <div className="mt-1 text-xs text-slate-600 break-words">{o.anchorKeywords.join(', ')}</div>
+                    <div className="mt-1 text-[11px] text-slate-500">Priority: {o.priority}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void deleteAnchorOverride(o.id)}
+                    disabled={deletingOverrideId === o.id}
+                    className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {deletingOverrideId === o.id ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

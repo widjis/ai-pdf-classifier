@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { requireUuid } from '../../../core/validation/validators.js';
 import { parseCreateMappingProfileDTO, parseUpdateMappingProfileDTO } from '../dto/mappingProfiles.dto.js';
+import { parseUpsertAnchorOverrideDTO } from '../dto/anchorOverrides.dto.js';
 import { mappingsService } from '../service/mappings.service.js';
 
 export const mappingProfilesController = {
@@ -27,5 +28,28 @@ export const mappingProfilesController = {
     const dto = parseUpdateMappingProfileDTO(req.body);
     res.json(await mappingsService.updateProfile(id, dto));
   },
-};
 
+  listAnchorOverrides: async (req: Request, res: Response) => {
+    const profileId = requireUuid(req.params.id, 'id');
+    res.json(await mappingsService.listAnchorOverrides(profileId));
+  },
+
+  upsertAnchorOverride: async (req: Request, res: Response) => {
+    const profileId = requireUuid(req.params.id, 'id');
+    const dto = parseUpsertAnchorOverrideDTO(req.body);
+    const created = await mappingsService.upsertAnchorOverride({
+      profileId,
+      category: dto.category,
+      anchorKeywords: dto.anchorKeywords,
+      priority: dto.priority,
+      isActive: dto.isActive,
+    });
+    res.status(201).json(created);
+  },
+
+  deleteAnchorOverride: async (req: Request, res: Response) => {
+    const id = requireUuid(req.params.overrideId, 'overrideId');
+    await mappingsService.deleteAnchorOverride(id);
+    res.status(204).end();
+  },
+};

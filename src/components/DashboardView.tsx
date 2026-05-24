@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CloudUpload, FileText, ExternalLink, RefreshCw } from 'lucide-react';
 import { DocumentInfo } from '../types';
 import { api } from '../lib/api/client';
-import type { RecentActivityItem } from '../lib/api/types';
+import type { QueueMetricsResponse, RecentActivityItem } from '../lib/api/types';
 
 interface DashboardViewProps {
   onReview: (file: DocumentInfo) => void;
@@ -14,6 +14,9 @@ export default function DashboardView({ onReview: _onReview, onCreateBatch }: Da
   const [recent, setRecent] = useState<RecentActivityItem[]>([]);
   const [isLoadingRecent, setIsLoadingRecent] = useState(false);
   const [recentError, setRecentError] = useState<string | null>(null);
+  const [queueMetrics, setQueueMetrics] = useState<QueueMetricsResponse | null>(null);
+  const [isLoadingQueue, setIsLoadingQueue] = useState(false);
+  const [queueError, setQueueError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const accept = useMemo(() => ['.pdf', '.zip', '.docx'].join(','), []);
   
@@ -53,6 +56,39 @@ export default function DashboardView({ onReview: _onReview, onCreateBatch }: Da
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadQueue = async (args?: { silent?: boolean }) => {
+      if (!args?.silent) {
+        setIsLoadingQueue(true);
+        setQueueError(null);
+      }
+      try {
+        const data = await api.batches.queueMetrics();
+        if (!cancelled) setQueueMetrics(data);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to load processing queue.';
+        if (!cancelled) setQueueError(message);
+      } finally {
+        if (!cancelled && !args?.silent) setIsLoadingQueue(false);
+      }
+    };
+
+    void loadQueue();
+    const id = window.setInterval(() => {
+      void loadQueue({ silent: true });
+    }, 8000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
+  const backlogCount = queueError ? null : queueMetrics?.backlogCount ?? null;
+  const computeLoadPercent = queueError ? null : queueMetrics?.computeLoadPercent ?? null;
 
   const formatRelative = (iso: string) => {
     const ts = new Date(iso).getTime();
@@ -135,20 +171,27 @@ export default function DashboardView({ onReview: _onReview, onCreateBatch }: Da
         <div className="border border-slate-200 bg-white rounded-xl p-6 shadow-sm flex flex-col h-full">
           <div className="flex items-center justify-between mb-6">
              <h3 className="text-[11px] font-bold text-slate-500 tracking-widest uppercase">Processing Queue</h3>
-             <button className="text-brand-600 hover:bg-slate-50 p-1.5 rounded transition-colors"><ExternalLink className="w-4 h-4" /></button>
+             <button type="button" className="text-brand-600 hover:bg-slate-50 p-1.5 rounded transition-colors" aria-label="Open files">
+               <ExternalLink className="w-4 h-4" />
+             </button>
           </div>
-          <div className="text-6xl font-light text-slate-900 tracking-tighter mb-4 mt-auto">12</div>
+          <div className="text-6xl font-light text-slate-900 tracking-tighter mb-4 mt-auto tabular-nums">
+            {isLoadingQueue && backlogCount === null ? '—' : backlogCount ?? '—'}
+          </div>
           <p className="text-[14px] text-slate-500 leading-relaxed mb-8">
-            Files currently in classification pipeline.
+            Documents queued or processing across all batches.
           </p>
           
           <div className="mt-auto">
             <div className="flex justify-between text-[11px] font-semibold text-slate-500 mb-2 uppercase tracking-wide">
                <span>Compute Load</span>
-               <span>42%</span>
+               <span className="tabular-nums">{computeLoadPercent === null ? '—' : `${computeLoadPercent}%`}</span>
             </div>
             <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
-               <div className="h-full bg-brand-600 rounded-full transition-all duration-700 ease-out" style={{ width: '42%' }}></div>
+               <div
+                 className="h-full bg-brand-600 rounded-full transition-all duration-700 ease-out"
+                 style={{ width: `${computeLoadPercent ?? 0}%` }}
+               ></div>
             </div>
           </div>
         </div>

@@ -3,7 +3,6 @@ import { Play, UploadCloud, X } from 'lucide-react';
 import { ApiClientError, api } from '../lib/api/client';
 import type { MappingProfile } from '../lib/api/types';
 
-type DocType = 'standard' | 'ocr' | 'scanned';
 type AiProvider = 'gemini' | 'openai';
 
 const SETTINGS_KEY = 'ai-pdf-classifier.settings';
@@ -40,7 +39,6 @@ export default function NewBatchView({ initialFiles, onCancel, onStart }: NewBat
     const parsed = JSON.parse(raw) as Partial<{ aiModel: string }>;
     return parsed.aiModel ?? 'gemini-1.5-pro';
   });
-  const [docType, setDocType] = useState<DocType>('standard');
   const [files, setFiles] = useState<File[]>(() => initialFiles ?? []);
   const [profiles, setProfiles] = useState<MappingProfile[]>([]);
   const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
@@ -54,10 +52,13 @@ export default function NewBatchView({ initialFiles, onCancel, onStart }: NewBat
         { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
         { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
         { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+        { value: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro Image Preview' },
       ],
       openai: [
         { value: 'gpt-4o', label: 'GPT-4o' },
         { value: 'gpt-4o-mini', label: 'GPT-4o mini' },
+        { value: 'gpt-5.4-mini', label: 'GPT-5.4 mini' },
+        { value: 'gpt-5.4-nano', label: 'GPT-5.4 nano' },
       ],
     }),
     [],
@@ -145,7 +146,7 @@ export default function NewBatchView({ initialFiles, onCancel, onStart }: NewBat
         mappingProfileId: mappingProfileId.trim().length > 0 ? mappingProfileId : undefined,
         aiProvider,
         aiModel,
-        docTypeHandling: docType,
+        docTypeHandling: 'standard',
       });
       await api.batches.uploadDocuments(created.id, files);
       await api.batches.start(created.id);
@@ -246,35 +247,6 @@ export default function NewBatchView({ initialFiles, onCancel, onStart }: NewBat
                   ))
                 )}
               </select>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <span className="text-sm font-semibold text-slate-700">Document Type Handling</span>
-            <div className="flex flex-col md:flex-row gap-3">
-              <label className={`flex-1 border rounded p-3 flex items-start gap-3 cursor-pointer transition-colors ${docType === 'standard' ? 'border-brand-600 bg-brand-50' : 'border-slate-200 hover:bg-slate-50'}`}>
-                <input className="mt-1" name="doc_type" type="radio" value="standard" checked={docType === 'standard'} onChange={() => setDocType('standard')} />
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold text-slate-800">Standard PDF</span>
-                  <span className="text-xs text-slate-500">Native text layer available</span>
-                </div>
-              </label>
-
-              <label className={`flex-1 border rounded p-3 flex items-start gap-3 cursor-pointer transition-colors ${docType === 'ocr' ? 'border-brand-600 bg-brand-50' : 'border-slate-200 hover:bg-slate-50'}`}>
-                <input className="mt-1" name="doc_type" type="radio" value="ocr" checked={docType === 'ocr'} onChange={() => setDocType('ocr')} />
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold text-slate-800">OCR Required</span>
-                  <span className="text-xs text-slate-500">Force text extraction</span>
-                </div>
-              </label>
-
-              <label className={`flex-1 border rounded p-3 flex items-start gap-3 cursor-pointer transition-colors ${docType === 'scanned' ? 'border-brand-600 bg-brand-50' : 'border-slate-200 hover:bg-slate-50'}`}>
-                <input className="mt-1" name="doc_type" type="radio" value="scanned" checked={docType === 'scanned'} onChange={() => setDocType('scanned')} />
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold text-slate-800">Scanned Images</span>
-                  <span className="text-xs text-slate-500">Image pre-processing</span>
-                </div>
-              </label>
             </div>
           </div>
 

@@ -50,3 +50,15 @@
 ## Notes:
 - Default preset is saved in user preferences; the preset open in the editor can differ from the default
 - Standard ICT seed now sets target_prefix values (ICTBKK/ICTCRH/ICTCOF/ICTLOA/ICTBAK/ICTSTB/ICTSRF) and the Settings UI shows the filename pattern as PREFIX### - {Requester}.pdf
+
+2026-05-24
+
+## Feature:
+- Dashboard queue metrics
+
+## Changes:
+- Added backend endpoint for global queue metrics across all batches (/api/batches/queue-metrics)
+- Wired the Dashboard "Processing Queue" card to real queue totals and compute load (backlog ratio) with auto-refresh
+
+## Notes:
+- LDAP integration is excluded from backend TypeScript compilation until its dependency resolution is wired into the local install setup

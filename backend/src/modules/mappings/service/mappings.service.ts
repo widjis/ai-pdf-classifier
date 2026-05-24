@@ -1,5 +1,6 @@
 import { ApiError } from '../../../core/http/apiError.js';
-import type { MappingProfile, MappingRule, MappingRuleMatchType } from '../model/mapping.model.js';
+import type { AnchorOverride, MappingProfile, MappingRule, MappingRuleMatchType } from '../model/mapping.model.js';
+import { anchorOverridesRepository } from '../repository/anchorOverrides.repository.js';
 import { mappingProfilesRepository } from '../repository/mappingProfiles.repository.js';
 import { mappingRulesRepository } from '../repository/mappingRules.repository.js';
 
@@ -56,5 +57,25 @@ export const mappingsService = {
     const ok = await mappingRulesRepository.deleteById(id);
     if (!ok) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Mapping rule not found' });
   },
-};
 
+  listAnchorOverrides: async (profileId: string): Promise<AnchorOverride[]> => {
+    await mappingsService.getProfile(profileId);
+    return anchorOverridesRepository.listByProfileId(profileId);
+  },
+
+  upsertAnchorOverride: async (args: {
+    profileId: string;
+    category: string;
+    anchorKeywords: string[];
+    priority: number;
+    isActive: boolean;
+  }): Promise<AnchorOverride> => {
+    await mappingsService.getProfile(args.profileId);
+    return anchorOverridesRepository.upsert(args);
+  },
+
+  deleteAnchorOverride: async (id: string): Promise<void> => {
+    const ok = await anchorOverridesRepository.deleteById(id);
+    if (!ok) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Anchor override not found' });
+  },
+};

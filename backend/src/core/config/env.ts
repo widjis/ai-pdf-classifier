@@ -67,5 +67,11 @@ export const env = {
   postgresSsl: parseBoolean(process.env.POSTGRES_SSL, false),
   postgresSslRejectUnauthorized: parseBoolean(process.env.POSTGRES_SSL_REJECT_UNAUTHORIZED, false),
   secretsEncryptionKeyBase64: getOptionalTrimmed('SECRETS_ENCRYPTION_KEY_BASE64'),
+  authTokenKeyBase64: getOptionalTrimmed('AUTH_TOKEN_KEY_BASE64'),
+  ldapUrl: getOptionalTrimmed('LDAP_URL'),
+  ldapBaseDn: getOptionalTrimmed('LDAP_BASE_DN'),
+  ldapBindDn: getOptionalTrimmed('LDAP_BIND_DN'),
+  ldapBindPassword: getOptionalTrimmed('LDAP_BIND_PASSWORD'),
   uploadDir: getOptionalTrimmed('UPLOAD_DIR') ?? path.resolve(process.cwd(), 'storage', 'uploads'),
+  exportDir: getOptionalTrimmed('EXPORT_DIR') ?? path.resolve(process.cwd(), 'storage', 'exports'),
 } as const;

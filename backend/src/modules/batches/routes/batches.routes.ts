@@ -47,11 +47,23 @@ const upload = multer({
 });
 
 router.get('/recent-activity', asyncHandler(batchesController.recentActivity));
+router.get('/queue-metrics', asyncHandler(batchesController.queueMetrics));
 router.get('/', asyncHandler(batchesController.list));
 router.post('/', asyncHandler(batchesController.create));
 router.post('/:id/documents', upload.array('files'), asyncHandler(batchesController.uploadDocuments));
 router.get('/:id/documents', asyncHandler(batchesController.listDocuments));
+router.post('/:id/documents/bulk-approve', asyncHandler(batchesController.bulkApproveDocuments));
+router.post('/:id/documents/bulk-category', asyncHandler(batchesController.bulkSetCategory));
+router.get('/:id/documents/:batchDocumentId', asyncHandler(batchesController.getDocument));
+router.get('/:id/documents/:batchDocumentId/file', asyncHandler(batchesController.downloadDocumentFile));
+router.patch('/:id/documents/:batchDocumentId', asyncHandler(batchesController.updateDocumentCategory));
+router.post('/:id/documents/:batchDocumentId/approve', asyncHandler(batchesController.approveDocument));
 router.post('/:id/start', asyncHandler(batchesController.start));
+router.get('/:id/export', asyncHandler(batchesController.getLatestExport));
+router.post('/:id/export', asyncHandler(batchesController.exportBatch));
+router.get('/:id/export/manifest', asyncHandler(batchesController.downloadExportManifest));
+router.get('/:id/export/zip', asyncHandler(batchesController.downloadExportZip));
+router.get('/:id/export/documents/:batchDocumentId/file', asyncHandler(batchesController.downloadExportedDocumentFile));
 router.get('/:id', asyncHandler(batchesController.get));
 
 export default router;

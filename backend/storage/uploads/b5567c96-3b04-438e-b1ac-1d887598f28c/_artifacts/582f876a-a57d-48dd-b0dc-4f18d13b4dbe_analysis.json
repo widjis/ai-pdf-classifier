@@ -1,0 +1,60 @@
+{
+  "category": "SRF Scan",
+  "confidence": 95,
+  "fields": {
+    "documentNumber": "MTI-HRM-ICT-FRM-002_Rev.000",
+    "personName": "Winda Febriana",
+    "documentDate": "20/08/2024",
+    "organization": null,
+    "notes": "Service Request Form"
+  },
+  "anchors": [
+    "Service Request Form",
+    "Winda Febriana",
+    "Environmental",
+    "Morowali",
+    "Enn Compliance Supervisor",
+    "Keyboard Protector",
+    "CEMS Shelter",
+    "20/08/2024"
+  ],
+  "meta": {
+    "mode": "text",
+    "raw": {
+      "id": "chatcmpl-DiwI1G5mrLzgyEbsmyVmpn6WfJmsn",
+      "object": "chat.completion",
+      "created": 1779602869,
+      "model": "gpt-4o-2024-08-06",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"category\": \"SRF Scan\",\n  \"confidence\": 95,\n  \"fields\": {\n    \"documentNumber\": \"MTI-HRM-ICT-FRM-002_Rev.000\",\n    \"personName\": \"Winda Febriana\",\n    \"documentDate\": \"20/08/2024\",\n    \"organization\": null,\n    \"notes\": \"Service Request Form\"\n  },\n  \"anchors\": [\n    \"Service Request Form\",\n    \"Winda Febriana\",\n    \"Environmental\",\n    \"Morowali\",\n    \"Enn Compliance Supervisor\",\n    \"Keyboard Protector\",\n    \"CEMS Shelter\",\n    \"20/08/2024\"\n  ]\n}",
+            "refusal": null,
+            "annotations": []
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 613,
+        "completion_tokens": 142,
+        "total_tokens": 755,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "service_tier": "default",
+      "system_fingerprint": "fp_1e3b68831e"
+    }
+  }
+}

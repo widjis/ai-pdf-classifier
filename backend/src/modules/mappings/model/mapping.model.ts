@@ -23,3 +23,12 @@ export type MappingRule = {
   createdAt: string;
 };
 
+export type AnchorOverride = {
+  id: string;
+  profileId: string;
+  category: string;
+  anchorKeywords: string[];
+  priority: number;
+  isActive: boolean;
+  createdAt: string;
+};

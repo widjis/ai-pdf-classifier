@@ -13,4 +13,8 @@ router.put('/:id', asyncHandler(mappingProfilesController.update));
 router.get('/:id/rules', asyncHandler(mappingRulesController.listByProfile));
 router.post('/:id/rules', asyncHandler(mappingRulesController.createForProfile));
 
+router.get('/:id/anchor-overrides', asyncHandler(mappingProfilesController.listAnchorOverrides));
+router.post('/:id/anchor-overrides', asyncHandler(mappingProfilesController.upsertAnchorOverride));
+router.delete('/:id/anchor-overrides/:overrideId', asyncHandler(mappingProfilesController.deleteAnchorOverride));
+
 export default router;

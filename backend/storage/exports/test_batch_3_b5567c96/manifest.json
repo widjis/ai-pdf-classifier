@@ -1,0 +1,70 @@
+{
+  "batchId": "b5567c96-3b04-438e-b1ac-1d887598f28c",
+  "batchName": "test batch 3",
+  "createdAt": "2026-05-24T07:21:51.860Z",
+  "outputRoot": "/Users/widjis/Documents/Projects/ai-pdf-classifier/backend/storage/exports/test_batch_3_b5567c96",
+  "exportConfig": {
+    "startingIndex": 1,
+    "orderBy": "created_at",
+    "groupByCategory": true,
+    "numberingMode": "per_category"
+  },
+  "files": [
+    {
+      "seq": 1,
+      "docNumber": "001",
+      "batchDocumentId": "e3900410-edc1-45c7-b054-60b0ae5b6da0",
+      "documentId": "6038cf70-fbca-4322-a7d8-ab22128f0c41",
+      "category": "SRF Scan",
+      "requester": "Fahmi Arief Hakim",
+      "targetFolder": "SRF Scan",
+      "targetPrefix": "ICTSRF",
+      "targetCode": null,
+      "originalFilename": "ICRSRF391 - FAHMI ARIEF HAKIM - LED MONITOR.pdf",
+      "exportedRelativePath": "SRF_Scan/ICTSRF001 - Fahmi_Arief_Hakim.pdf",
+      "exportedFilename": "ICTSRF001 - Fahmi_Arief_Hakim.pdf"
+    },
+    {
+      "seq": 2,
+      "docNumber": "002",
+      "batchDocumentId": "976204b7-3790-4e1b-a359-83cb2c6c45ee",
+      "documentId": "f8730841-5881-4795-97d6-d42763ca3c22",
+      "category": "SRF Scan",
+      "requester": "Imron Ashadi",
+      "targetFolder": "SRF Scan",
+      "targetPrefix": "ICTSRF",
+      "targetCode": null,
+      "originalFilename": "ICRSRF438 - Imron Ashadi.pdf",
+      "exportedRelativePath": "SRF_Scan/ICTSRF002 - Imron_Ashadi.pdf",
+      "exportedFilename": "ICTSRF002 - Imron_Ashadi.pdf"
+    },
+    {
+      "seq": 3,
+      "docNumber": "003",
+      "batchDocumentId": "582f876a-a57d-48dd-b0dc-4f18d13b4dbe",
+      "documentId": "489b6394-4b36-4adf-ba4a-987b3b6270b6",
+      "category": "SRF Scan",
+      "requester": "Winda Febriana",
+      "targetFolder": "SRF Scan",
+      "targetPrefix": "ICTSRF",
+      "targetCode": null,
+      "originalFilename": "ICTSRF - KEYBORD PROTECTOR - TIO KATARINA.pdf",
+      "exportedRelativePath": "SRF_Scan/ICTSRF003 - Winda_Febriana.pdf",
+      "exportedFilename": "ICTSRF003 - Winda_Febriana.pdf"
+    },
+    {
+      "seq": 4,
+      "docNumber": "004",
+      "batchDocumentId": "0052e530-3ab3-498e-81c4-224bec81db07",
+      "documentId": "f088a5b8-c23c-425a-aa51-5269c85656d8",
+      "category": "SRF Scan",
+      "requester": "Mulyono",
+      "targetFolder": "SRF Scan",
+      "targetPrefix": "ICTSRF",
+      "targetCode": null,
+      "originalFilename": "ICTSRF - MULYONO.pdf",
+      "exportedRelativePath": "SRF_Scan/ICTSRF004 - Mulyono.pdf",
+      "exportedFilename": "ICTSRF004 - Mulyono.pdf"
+    }
+  ]
+}

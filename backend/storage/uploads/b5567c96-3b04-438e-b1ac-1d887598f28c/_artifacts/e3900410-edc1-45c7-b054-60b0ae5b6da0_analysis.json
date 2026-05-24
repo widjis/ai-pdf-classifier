@@ -1,0 +1,60 @@
+{
+  "category": "SRF Scan",
+  "confidence": 95,
+  "fields": {
+    "documentNumber": "MTI-HRM-ICT-FRM-002_Rev.000",
+    "personName": "Fahmi Arief Hakim",
+    "documentDate": "01/08/2024",
+    "organization": "MTI",
+    "notes": "Service Request Form for OHS Superintendent"
+  },
+  "anchors": [
+    "Service Request Form",
+    "Fahmi Arief Hakim",
+    "MTI",
+    "OHS Superintendent",
+    "Morowali",
+    "New Request",
+    "Shared Folder: OHS",
+    "01/08/2024"
+  ],
+  "meta": {
+    "mode": "text",
+    "raw": {
+      "id": "chatcmpl-DiwHyBDvPfc5qFqsjDqDMys4w6sv0",
+      "object": "chat.completion",
+      "created": 1779602866,
+      "model": "gpt-4o-2024-08-06",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"category\": \"SRF Scan\",\n  \"confidence\": 95,\n  \"fields\": {\n    \"documentNumber\": \"MTI-HRM-ICT-FRM-002_Rev.000\",\n    \"personName\": \"Fahmi Arief Hakim\",\n    \"documentDate\": \"01/08/2024\",\n    \"organization\": \"MTI\",\n    \"notes\": \"Service Request Form for OHS Superintendent\"\n  },\n  \"anchors\": [\n    \"Service Request Form\",\n    \"Fahmi Arief Hakim\",\n    \"MTI\",\n    \"OHS Superintendent\",\n    \"Morowali\",\n    \"New Request\",\n    \"Shared Folder: OHS\",\n    \"01/08/2024\"\n  ]\n}",
+            "refusal": null,
+            "annotations": []
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 612,
+        "completion_tokens": 156,
+        "total_tokens": 768,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "service_tier": "default",
+      "system_fingerprint": "fp_1e3b68831e"
+    }
+  }
+}
