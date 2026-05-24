@@ -47,6 +47,33 @@ where not exists (
     and r.source = v.source
 );
 
+with profile as (
+  select id from mapping_profiles where name = 'Standard ICT Mappings' and version = 1
+)
+update mapping_rules r
+set target_prefix = case r.source
+  when 'Berita Kehilangan' then 'ICTBKK'
+  when 'Checklist Reimburse HP' then 'ICTCRH'
+  when 'COF Scan' then 'ICTCOF'
+  when 'ICT Loan Form' then 'ICTLOA'
+  when 'Kartu Halo' then 'ICTBAK'
+  when 'Serah Terima Barang' then 'ICTSTB'
+  when 'SRF Scan' then 'ICTSRF'
+  else r.target_prefix
+end
+from profile
+where r.profile_id = profile.id
+  and r.match_type = 'category'
+  and r.source in (
+    'Berita Kehilangan',
+    'Checklist Reimburse HP',
+    'COF Scan',
+    'ICT Loan Form',
+    'Kartu Halo',
+    'Serah Terima Barang',
+    'SRF Scan'
+  );
+
 insert into user_preferences (user_id, default_mapping_profile_id, default_ai_provider, default_ai_model, updated_at)
 select u.id, p.id, 'gemini', 'gemini-1.5-pro', now()
 from app_users u

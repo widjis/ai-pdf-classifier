@@ -1,16 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CloudUpload, FileText, ExternalLink, RefreshCw } from 'lucide-react';
-import { mockDocuments } from '../data';
 import { DocumentInfo } from '../types';
 import { api } from '../lib/api/client';
+import type { RecentActivityItem } from '../lib/api/types';
 
 interface DashboardViewProps {
   onReview: (file: DocumentInfo) => void;
+  onCreateBatch: (files: File[]) => void;
 }
 
-export default function DashboardView({ onReview }: DashboardViewProps) {
-  const recentDocs = [mockDocuments[5], mockDocuments[6], mockDocuments[1]];
+export default function DashboardView({ onReview: _onReview, onCreateBatch }: DashboardViewProps) {
   const [apiStatus, setApiStatus] = useState<'checking' | 'ok' | 'degraded'>('checking');
+  const [recent, setRecent] = useState<RecentActivityItem[]>([]);
+  const [isLoadingRecent, setIsLoadingRecent] = useState(false);
+  const [recentError, setRecentError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const accept = useMemo(() => ['.pdf', '.zip', '.docx'].join(','), []);
   
   useEffect(() => {
     let cancelled = false;
@@ -27,6 +32,61 @@ export default function DashboardView({ onReview }: DashboardViewProps) {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoadingRecent(true);
+      setRecentError(null);
+      try {
+        const items = await api.batches.recentActivity(20);
+        if (!cancelled) setRecent(items);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to load recent activity.';
+        if (!cancelled) setRecentError(message);
+      } finally {
+        if (!cancelled) setIsLoadingRecent(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const formatRelative = (iso: string) => {
+    const ts = new Date(iso).getTime();
+    if (!Number.isFinite(ts)) return iso;
+    const delta = Date.now() - ts;
+    const mins = Math.floor(delta / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  };
+
+  const addAndCreateBatch = (incoming: File[]) => {
+    const filtered = incoming.filter((f) => {
+      const name = f.name.toLowerCase();
+      return name.endsWith('.pdf') || name.endsWith('.zip') || name.endsWith('.docx');
+    });
+    if (filtered.length === 0) return;
+    onCreateBatch(filtered);
+  };
+
+  const onBrowse = () => inputRef.current?.click();
+
+  const onDrop: React.DragEventHandler<HTMLDivElement> = (e) => {
+    e.preventDefault();
+    addAndCreateBatch(Array.from(e.dataTransfer.files));
+  };
+
+  const onPick: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    addAndCreateBatch(Array.from(e.target.files ?? []));
+    e.target.value = '';
+  };
 
   return (
     <div className="max-w-[1024px] w-full">
@@ -49,15 +109,27 @@ export default function DashboardView({ onReview }: DashboardViewProps) {
       </div>
 
       <div className="grid grid-cols-[1fr_280px] gap-6 mb-8 items-stretch">
-        <div className="border-2 border-dashed border-slate-300 rounded-xl bg-white p-10 flex flex-col items-center justify-center text-center cursor-pointer hover:border-brand-500 hover:bg-slate-50 transition-colors py-14">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={onBrowse}
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ' ? onBrowse() : null)}
+          onDrop={onDrop}
+          onDragOver={(e) => e.preventDefault()}
+          className="border-2 border-dashed border-slate-300 rounded-xl bg-white p-10 flex flex-col items-center justify-center text-center cursor-pointer hover:border-brand-500 hover:bg-slate-50 transition-colors py-14"
+        >
           <div className="bg-[#e0e7ff] w-14 h-14 rounded-xl flex items-center justify-center mb-5 shadow-sm">
              <CloudUpload className="w-7 h-7 text-brand-600" />
           </div>
-          <h3 className="font-semibold text-slate-800 text-lg mb-1.5">Drag & Drop PDFs</h3>
-          <p className="text-[14px] text-slate-500 max-w-[340px] leading-relaxed mb-6">Support for standard PDF, OCR PDF, and scanned image documents up to 50MB per file.</p>
-          <button className="px-6 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold rounded text-sm transition-colors border border-slate-200 shadow-sm">
+          <h3 className="font-semibold text-slate-800 text-lg mb-1.5">Drag & Drop Files</h3>
+          <p className="text-[14px] text-slate-500 max-w-[340px] leading-relaxed mb-6">Supports PDF, ZIP, DOCX up to 500MB.</p>
+          <button
+            type="button"
+            className="px-6 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold rounded text-sm transition-colors border border-slate-200 shadow-sm"
+          >
             Browse Files
           </button>
+          <input ref={inputRef} className="hidden" type="file" multiple accept={accept} onChange={onPick} />
         </div>
 
         <div className="border border-slate-200 bg-white rounded-xl p-6 shadow-sm flex flex-col h-full">
@@ -99,38 +171,68 @@ export default function DashboardView({ onReview }: DashboardViewProps) {
                 </tr>
             </thead>
             <tbody className="text-[14px]">
-                {recentDocs.map((doc, idx) => (
-                    <tr key={idx} className="border-b border-slate-100 group hover:bg-slate-50/80 transition-colors last:border-0 cursor-pointer" onClick={() => (doc.status === 'Ready for Review' || doc.category === 'BA_HALO') ? onReview(doc) : null}>
+                {recentError && (
+                  <tr>
+                    <td className="py-4 px-4 text-red-700 font-medium" colSpan={4}>
+                      {recentError}
+                    </td>
+                  </tr>
+                )}
+                {!recentError && isLoadingRecent && recent.length === 0 && (
+                  <tr>
+                    <td className="py-4 px-4 text-slate-500 font-medium" colSpan={4}>
+                      Loading recent activity…
+                    </td>
+                  </tr>
+                )}
+                {!recentError && !isLoadingRecent && recent.length === 0 && (
+                  <tr>
+                    <td className="py-4 px-4 text-slate-500 font-medium" colSpan={4}>
+                      No recent activity yet.
+                    </td>
+                  </tr>
+                )}
+                {recent.map((doc) => (
+                    <tr key={doc.batchDocumentId} className="border-b border-slate-100 group hover:bg-slate-50/80 transition-colors last:border-0">
                     <td className="py-4 px-4 font-medium text-slate-700 truncate max-w-[320px]">
                         <div className="flex items-center gap-3">
-                            <div className={`p-1.5 rounded border shadow-sm ${doc.category === 'BA_HALO' ? 'bg-[#e2f5ec] border-[#a7f3d0]' : 'bg-slate-100 border-slate-200'}`}>
-                              <FileText className={`w-4 h-4 ${doc.category === 'BA_HALO' ? 'text-[#006242]' : 'text-slate-400'}`} />
+                            <div className="p-1.5 rounded border shadow-sm bg-slate-100 border-slate-200">
+                              <FileText className="w-4 h-4 text-slate-400" />
                             </div>
-                            {doc.name}
+                            {doc.originalFilename}
                         </div>
                     </td>
-                    <td className="py-4 px-4 text-slate-500 tabular-nums font-medium text-[13px]">{doc.size}</td>
+                    <td className="py-4 px-4 text-slate-500 tabular-nums font-medium text-[13px]">{Math.ceil(doc.sizeBytes / 1024)} KB</td>
                     <td className="py-4 px-4">
-                        {doc.status === 'Processing' && (
+                        {doc.status === 'processing' && (
                             <div className="flex items-center gap-2">
                             <RefreshCw className="w-4 h-4 text-brand-600 animate-spin" />
                             <span className="text-brand-600 font-semibold text-[13px]">Analyzing...</span>
                             <div className="w-full max-w-[120px] h-0.5 bg-slate-200 mt-1 absolute bottom-0 left-0 hidden group-hover:block"><div className="w-1/3 h-full bg-brand-600 animate-pulse"></div></div>
                             </div>
                         )}
-                        {doc.status === 'Ready for Review' && (
+                        {doc.status === 'queued' && (
+                            <span className="px-2.5 py-1 bg-slate-100 text-slate-700 font-semibold rounded text-[12px] flex items-center gap-1.5 w-max">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-500 block"></span> Queued
+                            </span>
+                        )}
+                        {doc.status === 'ready_for_review' && (
                             <span className="px-2.5 py-1 bg-[#e0e7ff] text-brand-700 font-semibold rounded text-[12px] flex items-center gap-1.5 w-max">
                                 <span className="w-1.5 h-1.5 rounded-full bg-brand-600 block"></span> Ready for Review
                             </span>
                         )}
-                        {doc.category === 'BA_HALO' && (
-                            <span className="flex items-center gap-1.5 text-[#006242] font-semibold text-[13px] bg-[#e2f5ec] px-2.5 py-1 rounded w-max">
-                                <svg className="w-4 h-4 text-[#10B981]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                {doc.category}
+                        {doc.status === 'approved' && (
+                            <span className="px-2.5 py-1 bg-[#e2f5ec] text-[#006242] font-semibold rounded text-[12px] flex items-center gap-1.5 w-max">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] block"></span> Approved
+                            </span>
+                        )}
+                        {doc.status === 'failed' && (
+                            <span className="px-2.5 py-1 bg-red-50 text-red-700 font-semibold rounded text-[12px] flex items-center gap-1.5 w-max">
+                                <span className="w-1.5 h-1.5 rounded-full bg-red-600 block"></span> Failed
                             </span>
                         )}
                     </td>
-                    <td className="py-4 px-4 text-slate-400 text-right text-[13px] font-medium">{doc.time}</td>
+                    <td className="py-4 px-4 text-slate-400 text-right text-[13px] font-medium">{formatRelative(doc.createdAt)}</td>
                     </tr>
                 ))}
             </tbody>

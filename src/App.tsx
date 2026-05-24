@@ -14,6 +14,8 @@ import NewBatchView from './components/NewBatchView';
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>('files');
   const [selectedFile, setSelectedFile] = useState<DocumentInfo | null>(mockDocuments[7]); 
+  const [pendingNewBatchFiles, setPendingNewBatchFiles] = useState<File[]>([]);
+  const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
   // Pre-load the document review doc to simplify debugging if navigating directly
 
   const navigateTo = (view: ViewState) => setCurrentView(view);
@@ -21,6 +23,11 @@ export default function App() {
   const handleReviewFile = (file: DocumentInfo) => {
     setSelectedFile(file);
     setCurrentView('review');
+  };
+
+  const handleCreateBatchFromDashboard = (files: File[]) => {
+    setPendingNewBatchFiles(files);
+    setCurrentView('newBatch');
   };
 
   const handleApprove = () => {
@@ -38,10 +45,24 @@ export default function App() {
         )}
         
         <main className="flex-1 overflow-y-auto px-8 pt-8 pb-12 w-full h-full relative">
-           {currentView === 'dashboard' && <DashboardView onReview={handleReviewFile} />}
-           {currentView === 'files' && <BatchProcessingView onReview={handleReviewFile} />}
-           {currentView === 'newBatch' && <NewBatchView onCancel={() => navigateTo('files')} onStart={() => navigateTo('files')} />}
-           {currentView === 'settings' && <SettingsView />}
+           {currentView === 'dashboard' && <DashboardView onReview={handleReviewFile} onCreateBatch={handleCreateBatchFromDashboard} />}
+           {currentView === 'files' && <BatchProcessingView onReview={handleReviewFile} activeBatchId={activeBatchId} />}
+           {currentView === 'newBatch' && (
+             <NewBatchView
+               initialFiles={pendingNewBatchFiles}
+               onCancel={() => {
+                 setPendingNewBatchFiles([]);
+                 navigateTo('files');
+               }}
+               onStart={({ batchId }) => {
+                 setPendingNewBatchFiles([]);
+                 setActiveBatchId(batchId);
+                 navigateTo('files');
+               }}
+             />
+           )}
+           {currentView === 'settings' && <SettingsView section="general" />}
+           {currentView === 'aiConfiguration' && <SettingsView section="aiConfiguration" />}
            {currentView === 'review' && selectedFile && (
              <DocumentReviewView 
                file={selectedFile} 

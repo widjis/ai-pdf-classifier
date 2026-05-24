@@ -66,4 +66,6 @@ export const env = {
   postgresUrl: buildPostgresUrl(requireString('POSTGRES_URL')),
   postgresSsl: parseBoolean(process.env.POSTGRES_SSL, false),
   postgresSslRejectUnauthorized: parseBoolean(process.env.POSTGRES_SSL_REJECT_UNAUTHORIZED, false),
+  secretsEncryptionKeyBase64: getOptionalTrimmed('SECRETS_ENCRYPTION_KEY_BASE64'),
+  uploadDir: getOptionalTrimmed('UPLOAD_DIR') ?? path.resolve(process.cwd(), 'storage', 'uploads'),
 } as const;

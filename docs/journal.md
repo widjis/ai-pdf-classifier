@@ -36,3 +36,17 @@
 - Added standard backend error envelope and CORS middleware
 - Added CRUD endpoints for users, user preferences, mapping profiles/rules, and minimal batches
 - Added frontend typed API client and dashboard connectivity indicator (health + db ping)
+
+2026-05-24
+
+## Feature:
+- Settings (mapping presets + defaults)
+
+## Changes:
+- Expanded frontend API types and client methods for mapping profile creation and mapping rule CRUD
+- Rebuilt Settings page to separate system defaults vs preset editing, and added UI to create new mapping presets
+- Removed export/download content from Settings and standardized Settings UI text to English
+
+## Notes:
+- Default preset is saved in user preferences; the preset open in the editor can differ from the default
+- Standard ICT seed now sets target_prefix values (ICTBKK/ICTCRH/ICTCOF/ICTLOA/ICTBAK/ICTSTB/ICTSRF) and the Settings UI shows the filename pattern as PREFIX### - {Requester}.pdf

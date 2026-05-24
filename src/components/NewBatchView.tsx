@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Play, UploadCloud, X } from 'lucide-react';
+import { ApiClientError, api } from '../lib/api/client';
+import type { MappingProfile } from '../lib/api/types';
 
 type DocType = 'standard' | 'ocr' | 'scanned';
 type AiProvider = 'gemini' | 'openai';
@@ -7,17 +9,24 @@ type AiProvider = 'gemini' | 'openai';
 const SETTINGS_KEY = 'ai-pdf-classifier.settings';
 
 interface NewBatchViewProps {
+  initialFiles?: File[];
   onCancel: () => void;
-  onStart: () => void;
+  onStart: (args: { batchId: string }) => void;
 }
 
-export default function NewBatchView({ onCancel, onStart }: NewBatchViewProps) {
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof ApiClientError) return error.message;
+  if (error instanceof Error) return error.message;
+  return 'Something went wrong while talking to the backend.';
+};
+
+export default function NewBatchView({ initialFiles, onCancel, onStart }: NewBatchViewProps) {
   const [batchName, setBatchName] = useState('');
-  const [mappingPreset, setMappingPreset] = useState(() => {
+  const [mappingProfileId, setMappingProfileId] = useState(() => {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return 'standard_ict';
-    const parsed = JSON.parse(raw) as Partial<{ defaultMappingPreset: string }>;
-    return parsed.defaultMappingPreset ?? 'standard_ict';
+    if (!raw) return '';
+    const parsed = JSON.parse(raw) as Partial<{ defaultMappingProfileId: string }>;
+    return parsed.defaultMappingProfileId ?? '';
   });
   const [aiProvider, setAiProvider] = useState<AiProvider>(() => {
     const raw = localStorage.getItem(SETTINGS_KEY);
@@ -32,7 +41,11 @@ export default function NewBatchView({ onCancel, onStart }: NewBatchViewProps) {
     return parsed.aiModel ?? 'gemini-1.5-pro';
   });
   const [docType, setDocType] = useState<DocType>('standard');
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<File[]>(() => initialFiles ?? []);
+  const [profiles, setProfiles] = useState<MappingProfile[]>([]);
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const aiModels = useMemo(
@@ -57,6 +70,46 @@ export default function NewBatchView({ onCancel, onStart }: NewBatchViewProps) {
     if (!isValid) setAiModel(first);
   }, [aiModels, aiProvider, aiModel]);
 
+  useEffect(() => {
+    if (!initialFiles || initialFiles.length === 0) return;
+    setFiles((prev) => {
+      const existing = new Set(prev.map((f) => `${f.name}|${f.size}|${f.lastModified}`));
+      const next = [...prev];
+      for (const f of initialFiles) {
+        const key = `${f.name}|${f.size}|${f.lastModified}`;
+        if (existing.has(key)) continue;
+        existing.add(key);
+        next.push(f);
+      }
+      return next;
+    });
+  }, [initialFiles]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoadingProfiles(true);
+      setErrorMessage(null);
+      try {
+        const res = await api.mappingProfiles.list();
+        if (cancelled) return;
+        setProfiles(res);
+        if (mappingProfileId.trim().length === 0) {
+          const active = res.find((p) => p.isActive) ?? res[0];
+          if (active) setMappingProfileId(active.id);
+        }
+      } catch (error) {
+        if (!cancelled) setErrorMessage(getErrorMessage(error));
+      } finally {
+        if (!cancelled) setIsLoadingProfiles(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [mappingProfileId]);
+
   const accept = useMemo(() => ['.pdf', '.zip', '.docx'].join(','), []);
 
   const addFiles = (incoming: File[]) => {
@@ -78,6 +131,32 @@ export default function NewBatchView({ onCancel, onStart }: NewBatchViewProps) {
 
   const removeFile = (index: number) => setFiles((prev) => prev.filter((_, i) => i !== index));
 
+  const startRun = async () => {
+    if (isStarting) return;
+    if (files.length === 0) return;
+    if (batchName.trim().length === 0) return;
+
+    setIsStarting(true);
+    setErrorMessage(null);
+
+    try {
+      const created = await api.batches.create({
+        name: batchName.trim(),
+        mappingProfileId: mappingProfileId.trim().length > 0 ? mappingProfileId : undefined,
+        aiProvider,
+        aiModel,
+        docTypeHandling: docType,
+      });
+      await api.batches.uploadDocuments(created.id, files);
+      await api.batches.start(created.id);
+      onStart({ batchId: created.id });
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto w-full">
       <div className="mb-8">
@@ -87,6 +166,11 @@ export default function NewBatchView({ onCancel, onStart }: NewBatchViewProps) {
 
       <div className="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
         <div className="p-6 flex flex-col gap-6">
+          {errorMessage && (
+            <div className="border border-red-200 bg-red-50 text-red-700 rounded px-4 py-3 text-sm font-medium">
+              {errorMessage}
+            </div>
+          )}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-semibold text-slate-700" htmlFor="batch_name">
               Batch Name
@@ -141,20 +225,26 @@ export default function NewBatchView({ onCancel, onStart }: NewBatchViewProps) {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-slate-700" htmlFor="mapping_preset">
-                Mapping Preset
+              <label className="text-sm font-semibold text-slate-700" htmlFor="mapping_profile">
+                Mapping Profile
               </label>
               <select
-                id="mapping_preset"
-                name="mapping_preset"
-                value={mappingPreset}
-                onChange={(e) => setMappingPreset(e.target.value)}
+                id="mapping_profile"
+                name="mapping_profile"
+                value={mappingProfileId}
+                onChange={(e) => setMappingProfileId(e.target.value)}
                 className="w-full px-4 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-slate-800 bg-slate-50"
+                disabled={isLoadingProfiles || profiles.length === 0}
               >
-                <option value="standard_ict">Standard ICT Mappings</option>
-                <option value="finance_q3">Finance Q3 Taxonomy</option>
-                <option value="hr_onboarding">HR Onboarding Docs</option>
-                <option value="custom">-- Custom Configuration --</option>
+                {profiles.length === 0 ? (
+                  <option value="">{isLoadingProfiles ? 'Loading…' : 'No profiles available'}</option>
+                ) : (
+                  profiles.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} (v{p.version})
+                    </option>
+                  ))
+                )}
               </select>
             </div>
           </div>
@@ -240,17 +330,18 @@ export default function NewBatchView({ onCancel, onStart }: NewBatchViewProps) {
             type="button"
             onClick={onCancel}
             className="px-5 py-2 border border-slate-200 rounded text-sm font-medium text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors"
+            disabled={isStarting}
           >
             Cancel
           </button>
           <button
             type="button"
-            onClick={onStart}
+            onClick={startRun}
             className="px-5 py-2 bg-brand-600 text-white rounded text-sm font-semibold hover:bg-brand-700 cursor-pointer transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={files.length === 0 || batchName.trim().length === 0}
+            disabled={isStarting || files.length === 0 || batchName.trim().length === 0 || (profiles.length === 0 && !isLoadingProfiles)}
           >
             <Play className="w-4 h-4" />
-            Start Classification Run
+            {isStarting ? 'Starting…' : 'Start Classification Run'}
           </button>
         </div>
       </div>

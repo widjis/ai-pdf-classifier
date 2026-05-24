@@ -6,6 +6,7 @@ import userPreferencesRoutes from '../../modules/userPreferences/routes/userPref
 import mappingProfilesRoutes from '../../modules/mappings/routes/mappingProfiles.routes.js';
 import mappingRulesRoutes from '../../modules/mappings/routes/mappingRules.routes.js';
 import batchesRoutes from '../../modules/batches/routes/batches.routes.js';
+import aiConfigRoutes from '../../modules/aiConfig/routes/aiConfig.routes.js';
 import { corsMiddleware } from './cors.js';
 import { errorMiddleware, notFoundMiddleware } from './errorMiddleware.js';
 
@@ -22,6 +23,7 @@ export const createApp = () => {
   app.use('/api/mapping-profiles', mappingProfilesRoutes);
   app.use('/api/mapping-rules', mappingRulesRoutes);
   app.use('/api/batches', batchesRoutes);
+  app.use('/api/ai-config', aiConfigRoutes);
 
   app.use(notFoundMiddleware);
   app.use(errorMiddleware);
