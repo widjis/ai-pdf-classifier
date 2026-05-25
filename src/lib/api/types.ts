@@ -212,6 +212,11 @@ export type CreateBatchInput = {
   createdBy?: string;
 };
 
+export type UpdateBatchInput = {
+  name?: string;
+  status?: BatchStatus;
+};
+
 export type BatchDocumentListItem = {
   batchDocumentId: string;
   documentId: string;

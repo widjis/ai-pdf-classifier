@@ -17,6 +17,8 @@ type BatchRow = {
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 };
 
 const mapBatch = (r: BatchRow): Batch => ({
@@ -110,6 +112,7 @@ export const batchesRepository = {
     const res = await pool.query<BatchRow>(
       `select id, name, mapping_profile_id, ai_provider, ai_model, doc_type_handling, status, created_by, created_at, started_at, completed_at
        from batches
+       where deleted_at is null
        order by created_at desc`,
     );
     return res.rows.map(mapBatch);
@@ -119,7 +122,7 @@ export const batchesRepository = {
     const res = await pool.query<BatchRow>(
       `select id, name, mapping_profile_id, ai_provider, ai_model, doc_type_handling, status, created_by, created_at, started_at, completed_at
        from batches
-       where id = $1`,
+       where id = $1 and deleted_at is null`,
       [id],
     );
     const row = res.rows[0];
@@ -150,7 +153,7 @@ export const batchesRepository = {
       `update batches
        set status = 'running',
            started_at = coalesce(started_at, now())
-       where id = $1 and status = 'draft'
+       where id = $1 and status = 'draft' and deleted_at is null
        returning id, name, mapping_profile_id, ai_provider, ai_model, doc_type_handling, status, created_by, created_at, started_at, completed_at`,
       [id],
     );
@@ -213,7 +216,7 @@ export const batchesRepository = {
          bd.created_at
        from batch_documents bd
        join documents d on d.id = bd.document_id
-       where bd.batch_id = $1
+       where bd.batch_id = $1 and bd.deleted_at is null
        order by bd.created_at desc`,
       [batchId],
     );
@@ -269,7 +272,7 @@ export const batchesRepository = {
          order by created_at desc
          limit 1
        ) cr on true
-       where bd.batch_id = $1 and bd.id = $2`,
+       where bd.batch_id = $1 and bd.id = $2 and bd.deleted_at is null`,
       [args.batchId, args.batchDocumentId],
     );
     const row = res.rows[0];
@@ -316,7 +319,7 @@ export const batchesRepository = {
       `update batch_documents
        set status = 'approved',
            reviewed_at = now()
-       where id = $1`,
+       where id = $1 and deleted_at is null`,
       [args.batchDocumentId],
     );
   },
@@ -326,7 +329,7 @@ export const batchesRepository = {
       `update batch_documents
        set final_category = $2,
            status = 'ready_for_review'
-       where id = $1`,
+       where id = $1 and deleted_at is null`,
       [args.batchDocumentId, args.category],
     );
   },
@@ -338,6 +341,7 @@ export const batchesRepository = {
            reviewed_at = now()
        where batch_id = $1
          and id = any($2::uuid[])
+         and deleted_at is null
          and status in ('ready_for_review','failed')`,
       [args.batchId, args.batchDocumentIds],
     );
@@ -350,7 +354,8 @@ export const batchesRepository = {
        set final_category = $3,
            status = 'ready_for_review'
        where batch_id = $1
-         and id = any($2::uuid[])`,
+         and id = any($2::uuid[])
+         and deleted_at is null`,
       [args.batchId, args.batchDocumentIds, args.category],
     );
     return res.rowCount ?? 0;
@@ -367,7 +372,7 @@ export const batchesRepository = {
        set final_target_folder = $2,
            final_target_prefix = $3,
            final_target_code = $4
-       where id = $1`,
+       where id = $1 and deleted_at is null`,
       [args.batchDocumentId, args.targetFolder, args.targetPrefix, args.targetCode],
     );
   },
@@ -502,6 +507,7 @@ export const batchesRepository = {
          limit 1
        ) cr on true
        where bd.batch_id = $1
+         and bd.deleted_at is null
          and bd.status = 'approved'
          and bd.final_category is not null
        order by bd.created_at asc`,
@@ -532,6 +538,7 @@ export const batchesRepository = {
        from batch_documents bd
        join documents d on d.id = bd.document_id
        join batches b on b.id = bd.batch_id
+       where bd.deleted_at is null and b.deleted_at is null
        order by bd.created_at desc
        limit $1`,
       [limit],
@@ -558,7 +565,7 @@ export const batchesRepository = {
          bd.status
        from batch_documents bd
        join documents d on d.id = bd.document_id
-       where bd.batch_id = $1 and bd.status = 'queued'
+       where bd.batch_id = $1 and bd.status = 'queued' and bd.deleted_at is null
        order by bd.created_at asc`,
       [batchId],
     );
@@ -623,7 +630,7 @@ export const batchesRepository = {
       `update batches
        set status = $2,
            completed_at = $3
-       where id = $1`,
+       where id = $1 and deleted_at is null`,
       [args.batchId, args.status, args.completedAt === 'now' ? new Date().toISOString() : null],
     );
   },
@@ -683,7 +690,7 @@ export const batchesRepository = {
          count(*) filter (where status = 'ready_for_review')::text as ready_for_review,
          count(*) filter (where status = 'approved')::text as approved
        from batch_documents
-       where batch_id = $1`,
+       where batch_id = $1 and deleted_at is null`,
       [batchId],
     );
     const row = res.rows[0];
@@ -707,7 +714,8 @@ export const batchesRepository = {
          count(*)::text as total,
          count(*) filter (where status = 'queued')::text as queued,
          count(*) filter (where status = 'processing')::text as processing
-       from batch_documents`,
+       from batch_documents
+       where deleted_at is null`,
     );
     const row = res.rows[0];
     return {
@@ -715,5 +723,112 @@ export const batchesRepository = {
       queued: Number(row?.queued ?? 0),
       processing: Number(row?.processing ?? 0),
     };
+  },
+
+  updateBatch: async (args: { id: string; name?: string; status?: BatchStatus }): Promise<Batch> => {
+    const res = await pool.query<BatchRow>(
+      `update batches
+       set name = coalesce($2, name),
+           status = coalesce($3, status),
+           started_at = case when $3 = 'running' then coalesce(started_at, now()) else started_at end,
+           completed_at = case when $3 in ('completed','failed','canceled') then coalesce(completed_at, now()) else completed_at end
+       where id = $1 and deleted_at is null
+       returning id, name, mapping_profile_id, ai_provider, ai_model, doc_type_handling, status, created_by, created_at, started_at, completed_at`,
+      [args.id, args.name ?? null, args.status ?? null],
+    );
+    const row = res.rows[0];
+    if (!row) throw new Error('Batch not found');
+    return mapBatch(row);
+  },
+
+  softDeleteBatch: async (args: { id: string; deletedBy: string }): Promise<boolean> => {
+    const res = await pool.query(
+      `update batches
+       set deleted_at = now(),
+           deleted_by = $2,
+           status = 'canceled'
+       where id = $1 and deleted_at is null`,
+      [args.id, args.deletedBy],
+    );
+    return (res.rowCount ?? 0) > 0;
+  },
+
+  softDeleteBatchDocumentsByBatchId: async (args: { batchId: string; deletedBy: string }): Promise<number> => {
+    const res = await pool.query(
+      `update batch_documents
+       set deleted_at = now(),
+           deleted_by = $2
+       where batch_id = $1 and deleted_at is null`,
+      [args.batchId, args.deletedBy],
+    );
+    return res.rowCount ?? 0;
+  },
+
+  softDeleteBatchDocument: async (args: { batchId: string; batchDocumentId: string; deletedBy: string }): Promise<boolean> => {
+    const res = await pool.query(
+      `update batch_documents
+       set deleted_at = now(),
+           deleted_by = $3
+       where batch_id = $1 and id = $2 and deleted_at is null`,
+      [args.batchId, args.batchDocumentId, args.deletedBy],
+    );
+    return (res.rowCount ?? 0) > 0;
+  },
+
+  getBatchDocumentPurgeInfo: async (args: {
+    batchId: string;
+    batchDocumentId: string;
+  }): Promise<{ documentId: string; storagePath: string } | null> => {
+    const res = await pool.query<{ document_id: string; storage_path: string }>(
+      `select bd.document_id, d.storage_path
+       from batch_documents bd
+       join documents d on d.id = bd.document_id
+       where bd.batch_id = $1 and bd.id = $2`,
+      [args.batchId, args.batchDocumentId],
+    );
+    const row = res.rows[0];
+    if (!row) return null;
+    return { documentId: row.document_id, storagePath: row.storage_path };
+  },
+
+  listBatchDocumentsForPurge: async (batchId: string): Promise<Array<{ documentId: string; storagePath: string }>> => {
+    const res = await pool.query<{ document_id: string; storage_path: string }>(
+      `select distinct bd.document_id, d.storage_path
+       from batch_documents bd
+       join documents d on d.id = bd.document_id
+       where bd.batch_id = $1`,
+      [batchId],
+    );
+    return res.rows.map((r) => ({ documentId: r.document_id, storagePath: r.storage_path }));
+  },
+
+  listExportOutputPathsForBatch: async (batchId: string): Promise<string[]> => {
+    const res = await pool.query<{ output_path: string | null }>(
+      `select output_path
+       from exports
+       where batch_id = $1 and output_path is not null`,
+      [batchId],
+    );
+    return res.rows.map((r) => r.output_path).filter((v): v is string => typeof v === 'string' && v.length > 0);
+  },
+
+  hardDeleteBatch: async (batchId: string): Promise<boolean> => {
+    const res = await pool.query(`delete from batches where id = $1`, [batchId]);
+    return (res.rowCount ?? 0) > 0;
+  },
+
+  hardDeleteBatchDocument: async (args: { batchId: string; batchDocumentId: string }): Promise<boolean> => {
+    const res = await pool.query(`delete from batch_documents where batch_id = $1 and id = $2`, [args.batchId, args.batchDocumentId]);
+    return (res.rowCount ?? 0) > 0;
+  },
+
+  deleteDocumentIfOrphan: async (documentId: string): Promise<boolean> => {
+    const res = await pool.query(
+      `delete from documents d
+       where d.id = $1
+         and not exists (select 1 from batch_documents bd where bd.document_id = d.id)`,
+      [documentId],
+    );
+    return (res.rowCount ?? 0) > 0;
   },
 };

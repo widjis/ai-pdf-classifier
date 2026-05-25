@@ -1,5 +1,6 @@
 import { Client } from 'ldapts';
 import { env } from '../../core/config/env.js';
+import fs from 'node:fs';
 
 export type LdapUser = {
   dn: string;
@@ -65,6 +66,13 @@ const getEmailFromEntry = (entry: Record<string, unknown>): string | undefined =
 const requireLdapConfig = () => {
   if (!env.ldapUrl) throw new Error('Missing LDAP_URL');
   if (!env.ldapBaseDn) throw new Error('Missing LDAP_BASE_DN');
+  let tlsCa: Buffer | undefined;
+  if (env.ldapTlsCaBase64) {
+    tlsCa = Buffer.from(env.ldapTlsCaBase64, 'base64');
+  } else if (env.ldapTlsCaFile) {
+    if (!fs.existsSync(env.ldapTlsCaFile)) throw new Error('Missing LDAP_TLS_CA_FILE');
+    tlsCa = fs.readFileSync(env.ldapTlsCaFile);
+  }
   return {
     url: env.ldapUrl,
     baseDn: env.ldapBaseDn,
@@ -73,6 +81,7 @@ const requireLdapConfig = () => {
     bindPassword: env.ldapBindPassword,
     allowedGroups: parseAllowedGroups(env.ldapAllowedGroups),
     tlsRejectUnauthorized: env.ldapTlsRejectUnauthorized,
+    tlsCa,
   };
 };
 
@@ -92,7 +101,7 @@ export const lookupLdapUser = async (identity: string): Promise<LdapUser | null>
     url: cfg.url,
     timeout: 10_000,
     connectTimeout: 10_000,
-    tlsOptions: { rejectUnauthorized: cfg.tlsRejectUnauthorized },
+    tlsOptions: { rejectUnauthorized: cfg.tlsRejectUnauthorized, ...(cfg.tlsCa ? { ca: cfg.tlsCa } : {}) },
   });
 
   try {
@@ -138,7 +147,7 @@ export const searchLdapUsers = async (query: string, limit = 10): Promise<LdapUs
     url: cfg.url,
     timeout: 10_000,
     connectTimeout: 10_000,
-    tlsOptions: { rejectUnauthorized: cfg.tlsRejectUnauthorized },
+    tlsOptions: { rejectUnauthorized: cfg.tlsRejectUnauthorized, ...(cfg.tlsCa ? { ca: cfg.tlsCa } : {}) },
   });
 
   try {
@@ -190,7 +199,7 @@ export const authenticateWithLdap = async (email: string, password: string): Pro
     url: cfg.url,
     timeout: 10_000,
     connectTimeout: 10_000,
-    tlsOptions: { rejectUnauthorized: cfg.tlsRejectUnauthorized },
+    tlsOptions: { rejectUnauthorized: cfg.tlsRejectUnauthorized, ...(cfg.tlsCa ? { ca: cfg.tlsCa } : {}) },
   });
 
   try {

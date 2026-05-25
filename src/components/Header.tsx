@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, HelpCircle, Loader2, Search } from 'lucide-react';
+import { Bell, HelpCircle, Loader2, Menu, Search } from 'lucide-react';
 import { ViewState } from '../types';
 import { api } from '../lib/api/client';
 import type { Batch, BatchSummary } from '../lib/api/types';
@@ -7,9 +7,10 @@ import type { Batch, BatchSummary } from '../lib/api/types';
 interface HeaderProps {
   currentView: ViewState;
   onNavigate: (view: ViewState) => void;
+  onToggleSidebar?: () => void;
 }
 
-export default function Header({ currentView, onNavigate }: HeaderProps) {
+export default function Header({ currentView, onNavigate, onToggleSidebar }: HeaderProps) {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isLoadingBatches, setIsLoadingBatches] = useState(false);
   const [batchError, setBatchError] = useState<string | null>(null);
@@ -92,15 +93,25 @@ export default function Header({ currentView, onNavigate }: HeaderProps) {
   };
 
   return (
-    <header className="h-16 border-b border-slate-200/70 bg-white/70 backdrop-blur-xl flex items-center justify-between px-8 flex-shrink-0">
-      <div className="flex items-center gap-10 h-full">
-        <h1 className="text-[15px] font-semibold text-slate-900 tracking-wide flex items-center gap-2">
+    <header className="h-16 border-b border-slate-200/70 bg-white/70 backdrop-blur-xl flex items-center justify-between px-4 sm:px-6 lg:px-8 flex-shrink-0">
+      <div className="flex items-center gap-4 md:gap-10 h-full min-w-0">
+        {onToggleSidebar ? (
+          <button
+            type="button"
+            className="md:hidden -ml-1 p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+            onClick={onToggleSidebar}
+            aria-label="Open sidebar"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        ) : null}
+        <h1 className="text-[15px] font-semibold text-slate-900 tracking-wide flex items-center gap-2 min-w-0">
           <span className="inline-flex h-7 items-center rounded-full border border-slate-200 bg-white px-2.5 text-[12px] font-semibold text-brand-700">
             AI PDF Classifier
           </span>
           <span className="hidden sm:inline text-slate-700">Console</span>
         </h1>
-        <nav className="flex space-x-6 h-full">
+        <nav className="hidden md:flex space-x-6 h-full">
           {(['dashboard', 'files'] as ViewState[]).map((tab) => (
             <button
               key={tab}
@@ -117,14 +128,14 @@ export default function Header({ currentView, onNavigate }: HeaderProps) {
         </nav>
       </div>
 
-      <div className="flex items-center gap-5">
+      <div className="flex items-center gap-3 sm:gap-5">
         {currentView === 'dashboard' && (
           <div className="relative flex items-center h-full">
             <Search className="w-4 h-4 absolute left-3 text-slate-400" />
             <input
               type="text"
               placeholder="Search files..."
-              className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15 w-64 text-slate-900 placeholder-slate-400 bg-white/70 transition-colors"
+              className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15 w-[180px] sm:w-64 text-slate-900 placeholder-slate-400 bg-white/70 transition-colors"
             />
           </div>
         )}

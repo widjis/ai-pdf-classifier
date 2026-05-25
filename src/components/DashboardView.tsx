@@ -125,7 +125,7 @@ export default function DashboardView({ onReview: _onReview, onCreateBatch }: Da
   };
 
   return (
-    <div className="max-w-[1024px] w-full">
+    <div className="w-full lg:max-w-[1024px]">
       <div className="mb-6 border-b border-slate-200 pb-4">
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-[18px] font-semibold text-slate-900 mb-0.5">Overview</h2>
@@ -144,7 +144,7 @@ export default function DashboardView({ onReview: _onReview, onCreateBatch }: Da
         <p className="text-[14px] text-slate-500">Drop files to classify or review recent activity.</p>
       </div>
 
-      <div className="grid grid-cols-[1fr_280px] gap-6 mb-8 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 mb-8 items-stretch">
         <div
           role="button"
           tabIndex={0}
@@ -204,6 +204,7 @@ export default function DashboardView({ onReview: _onReview, onCreateBatch }: Da
         </div>
         
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+          <div className="overflow-x-auto">
             <table className="w-full text-left">
             <thead>
                 <tr className="text-[13px] font-semibold text-slate-500 border-b border-slate-200 bg-slate-50/50">
@@ -280,6 +281,7 @@ export default function DashboardView({ onReview: _onReview, onCreateBatch }: Da
                 ))}
             </tbody>
             </table>
+          </div>
         </div>
       </div>
     </div>

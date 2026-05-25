@@ -435,7 +435,7 @@ export default function ManageUsersView({ authUser }: { authUser: AuthUser }) {
             </button>
           </div>
 
-          <div className="rounded-lg border border-slate-200 overflow-hidden">
+          <div className="rounded-lg border border-slate-200 overflow-x-auto">
             <table className="min-w-[920px] w-full text-left bg-white">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr className="text-[12px] font-semibold text-slate-500">

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Folder, Clock, BarChart2, Trash2, Plus, LayoutGrid, Settings, KeyRound, Tag, Users } from 'lucide-react';
+import { Folder, Clock, BarChart2, Trash2, Plus, LayoutGrid, Settings, KeyRound, Tag, Users, X } from 'lucide-react';
 import { ViewState } from '../types';
 import { ApiClientError, api } from '../lib/api/client';
 import type { AuthUser, MappingRule } from '../lib/api/types';
@@ -12,9 +12,21 @@ interface SidebarProps {
   onNavigate: (view: ViewState) => void;
   activeCategory: string | null;
   onSelectCategory: (category: string) => void;
+  className?: string;
+  showCloseButton?: boolean;
+  onClose?: () => void;
 }
 
-export default function Sidebar({ authUser, currentView, onNavigate, activeCategory, onSelectCategory }: SidebarProps) {
+export default function Sidebar({
+  authUser,
+  currentView,
+  onNavigate,
+  activeCategory,
+  onSelectCategory,
+  className,
+  showCloseButton = false,
+  onClose,
+}: SidebarProps) {
   const settingsActive = currentView === 'settings' || currentView === 'aiConfiguration' || currentView === 'manageUsers';
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
@@ -90,15 +102,31 @@ export default function Sidebar({ authUser, currentView, onNavigate, activeCateg
   }, [authUser.id]);
 
   return (
-    <aside className="w-[280px] bg-slate-950/45 border-r border-white/10 h-full flex flex-col flex-shrink-0 text-white backdrop-blur-xl">
-      <div className="p-5 border-b border-white/10 flex flex-col gap-1">
-        <div className="flex items-center gap-2 text-white/90 font-semibold mb-1">
-          <div className="bg-white/10 border border-white/10 text-white p-1.5 rounded-xl">
-            <LayoutGrid className="w-4 h-4" />
+    <aside
+      className={`w-[280px] bg-slate-950/45 border-r border-white/10 h-full flex flex-col flex-shrink-0 text-white backdrop-blur-xl ${
+        className ?? ''
+      }`}
+    >
+      <div className="p-5 border-b border-white/10 flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2 text-white/90 font-semibold mb-1">
+            <div className="bg-white/10 border border-white/10 text-white p-1.5 rounded-xl">
+              <LayoutGrid className="w-4 h-4" />
+            </div>
+            <span className="text-[15px] tracking-wide">Classification</span>
           </div>
-          <span className="text-[15px] tracking-wide">Classification</span>
+          <span className="text-xs text-white/50 font-medium">V1.0.0</span>
         </div>
-        <span className="text-xs text-white/50 font-medium">V1.0.0</span>
+        {showCloseButton && onClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Close sidebar"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        ) : null}
       </div>
 
       <div className="p-4">

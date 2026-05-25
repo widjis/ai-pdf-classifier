@@ -14,14 +14,15 @@
     "analyze:examples": "tsx src/tools/analyzeExamples.ts"
   },
   "dependencies": {
-    "ldapts": "^8.0.9",
+    "@napi-rs/canvas": "^0.1.80",
+    "archiver": "^7.0.1",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "ldapts": "^8.0.9",
     "multer": "^2.0.0",
-    "@napi-rs/canvas": "^0.1.80",
     "pdfjs-dist": "^5.4.54",
-    "archiver": "^7.0.1",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "react-example": "file:.."
   },
   "devDependencies": {
     "@types/archiver": "^6.0.3",

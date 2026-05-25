@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Download, FileText, RefreshCw, Tag, X } from 'lucide-react';
-import { ApiClientError, api, apiBaseUrl } from '../lib/api/client';
-import type { Batch, BatchDocumentDetails, BatchDocumentFieldsKey, BatchDocumentListItem, BatchSummary, ExportInfo, MappingRule } from '../lib/api/types';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Download, FileText, Pencil, RefreshCw, Tag, Trash2, Upload, X } from 'lucide-react';
+import { ApiClientError, api, apiBaseUrl, authToken } from '../lib/api/client';
+import type { AuthUser, Batch, BatchDocumentDetails, BatchDocumentFieldsKey, BatchDocumentListItem, BatchStatus, BatchSummary, ExportInfo, MappingRule } from '../lib/api/types';
 import { DocumentInfo } from '../types';
 
 interface BatchProcessingViewProps {
+  authUser: AuthUser | null;
   onReview: (file: DocumentInfo) => void;
   activeBatchId: string | null;
   categoryFilter: string | null;
@@ -53,6 +54,8 @@ const emptyReviewFields = (): Record<BatchDocumentFieldsKey, string> => ({
   notes: '',
 });
 
+const BATCH_STATUS_OPTIONS: BatchStatus[] = ['draft', 'running', 'needs_review', 'completed', 'failed', 'canceled'];
+
 type AllBatchesDocumentRow = BatchDocumentListItem & {
   batchId: string;
   batchName: string;
@@ -76,11 +79,13 @@ const mapWithConcurrency = async <T, R>(items: T[], limit: number, fn: (item: T)
 };
 
 export default function BatchProcessingView({
+  authUser,
   onReview: _onReview,
   activeBatchId,
   categoryFilter,
   onClearCategoryFilter,
 }: BatchProcessingViewProps) {
+  const isAdmin = authUser?.role === 'admin';
   const [batchId, setBatchId] = useState<string | null>(activeBatchId);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [batch, setBatch] = useState<BatchSummary | null>(null);
@@ -91,6 +96,19 @@ export default function BatchProcessingView({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const [batchSearch, setBatchSearch] = useState<string>('');
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [reviewFileUrl, setReviewFileUrl] = useState<string | null>(null);
+  const [batchEditOpen, setBatchEditOpen] = useState(false);
+  const [batchEditName, setBatchEditName] = useState('');
+  const [batchEditStatus, setBatchEditStatus] = useState<BatchStatus>('draft');
+  const [isBatchSaving, setIsBatchSaving] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<
+    | null
+    | { kind: 'batch'; batchId: string; batchName: string }
+    | { kind: 'docs'; batchId: string; batchDocumentIds: string[]; label: string }
+  >(null);
+  const [isConfirmRunning, setIsConfirmRunning] = useState(false);
 
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [reviewingBatchId, setReviewingBatchId] = useState<string | null>(null);
@@ -146,7 +164,7 @@ export default function BatchProcessingView({
       }
       try {
         const currentBatches: Batch[] = batches.length > 0 ? batches : await api.batches.list();
-        if (batches.length === 0) setBatches(currentBatches);
+        if (batches.length === 0 && currentBatches.length > 0) setBatches(currentBatches);
 
         const docsByBatch = await mapWithConcurrency(currentBatches, 6, async (b) => {
           const docs = await api.batches.listDocuments(b.id);
@@ -258,6 +276,9 @@ export default function BatchProcessingView({
   }, [documents, exportDialogOpen, exportNumberingMode, exportStartingIndex]);
 
   const closeReview = () => {
+    if (reviewFileUrl) {
+      window.URL.revokeObjectURL(reviewFileUrl);
+    }
     setReviewingId(null);
     setReviewingBatchId(null);
     setReviewDetails(null);
@@ -265,6 +286,7 @@ export default function BatchProcessingView({
     setReviewCategorySaved('');
     setReviewFields(emptyReviewFields());
     setReviewFieldsSaved(emptyReviewFields());
+    setReviewFileUrl(null);
   };
 
   const closeBulkCategory = () => {
@@ -324,9 +346,16 @@ export default function BatchProcessingView({
     return total > 0 && approved === total;
   }, [batch]);
 
+  const fetchWithAuth = async (url: string) => {
+    const token = authToken.get();
+    return fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+  };
+
   const downloadExportZip = async (id: string) => {
     const url = `${apiBaseUrl}/api/batches/${encodeURIComponent(id)}/export/zip`;
-    const res = await fetch(url);
+    const res = await fetchWithAuth(url);
     if (!res.ok) throw new Error(`Download failed (${res.status})`);
     const blob = await res.blob();
     const objectUrl = window.URL.createObjectURL(blob);
@@ -337,6 +366,119 @@ export default function BatchProcessingView({
     a.click();
     a.remove();
     window.URL.revokeObjectURL(objectUrl);
+  };
+
+  const downloadExportManifest = async (id: string) => {
+    const url = `${apiBaseUrl}/api/batches/${encodeURIComponent(id)}/export/manifest`;
+    const res = await fetchWithAuth(url);
+    if (!res.ok) throw new Error(`Download failed (${res.status})`);
+    const blob = await res.blob();
+    const objectUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = `manifest_${id}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(objectUrl);
+  };
+
+  const downloadExportedPdf = async (args: { batchId: string; batchDocumentId: string; filename?: string }) => {
+    const url = `${apiBaseUrl}/api/batches/${encodeURIComponent(args.batchId)}/export/documents/${encodeURIComponent(args.batchDocumentId)}/file`;
+    const res = await fetchWithAuth(url);
+    if (!res.ok) throw new Error(`Download failed (${res.status})`);
+    const blob = await res.blob();
+    const objectUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = args.filename ?? `exported_${args.batchDocumentId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(objectUrl);
+  };
+
+  const onUploadFiles = async (files: File[]) => {
+    if (!batchId) return;
+    if (files.length === 0) return;
+    setIsUploading(true);
+    setErrorMessage(null);
+    try {
+      await api.batches.uploadDocuments(batchId, files);
+      await refreshBatch({ silent: true });
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const openBatchEdit = () => {
+    if (!batch) return;
+    setBatchEditName(batch.name);
+    setBatchEditStatus(batch.status);
+    setBatchEditOpen(true);
+  };
+
+  const saveBatchEdit = async () => {
+    if (!batchId) return;
+    const name = batchEditName.trim();
+    if (name.length === 0) return;
+    setIsBatchSaving(true);
+    setErrorMessage(null);
+    try {
+      await api.batches.update(batchId, { name, status: batchEditStatus });
+      setBatchEditOpen(false);
+      setBatches(await api.batches.list());
+      await refreshBatch({ silent: true });
+      await refreshAllDocuments({ silent: true });
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsBatchSaving(false);
+    }
+  };
+
+  const runConfirmAction = async (mode: 'soft' | 'purge') => {
+    if (!confirmAction) return;
+    setIsConfirmRunning(true);
+    setErrorMessage(null);
+    try {
+      if (confirmAction.kind === 'batch') {
+        if (mode === 'purge') await api.batches.purge(confirmAction.batchId);
+        else await api.batches.delete(confirmAction.batchId);
+        setConfirmAction(null);
+        setBatches(await api.batches.list());
+        if (batchId === confirmAction.batchId) {
+          setBatchId(null);
+          setBatch(null);
+          setDocuments([]);
+          setSelectedIds(new Set());
+          setExportInfo(null);
+          setExportError(null);
+          closeReview();
+        }
+        await refreshAllDocuments({ silent: true });
+        return;
+      }
+
+      if (confirmAction.kind === 'docs') {
+        const ids = confirmAction.batchDocumentIds;
+        if (mode === 'purge') {
+          await Promise.all(ids.map((id) => api.batches.purgeDocument(confirmAction.batchId, id)));
+        } else {
+          await Promise.all(ids.map((id) => api.batches.deleteDocument(confirmAction.batchId, id)));
+        }
+        setConfirmAction(null);
+        setSelectedIds(new Set());
+        await refreshBatch({ silent: true });
+        await refreshAllDocuments({ silent: true });
+      }
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsConfirmRunning(false);
+    }
   };
 
   const runExport = async () => {
@@ -368,6 +510,10 @@ export default function BatchProcessingView({
   const openReview = async (batchDocumentId: string, explicitBatchId?: string) => {
     const targetBatchId = explicitBatchId ?? batchId;
     if (!targetBatchId) return;
+    if (reviewFileUrl) {
+      window.URL.revokeObjectURL(reviewFileUrl);
+      setReviewFileUrl(null);
+    }
     setReviewingId(batchDocumentId);
     setReviewingBatchId(targetBatchId);
     setIsReviewLoading(true);
@@ -408,6 +554,13 @@ export default function BatchProcessingView({
       }
       setReviewFields(initial);
       setReviewFieldsSaved(initial);
+
+      const fileUrl = `${apiBaseUrl}/api/batches/${encodeURIComponent(targetBatchId)}/documents/${encodeURIComponent(batchDocumentId)}/file`;
+      const fileRes = await fetchWithAuth(fileUrl);
+      if (!fileRes.ok) throw new Error(`Preview failed (${fileRes.status})`);
+      const fileBlob = await fileRes.blob();
+      const objectUrl = window.URL.createObjectURL(fileBlob);
+      setReviewFileUrl(objectUrl);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
       closeReview();
@@ -531,7 +684,7 @@ export default function BatchProcessingView({
   }, [batch]);
 
   return (
-    <div className="max-w-[1100px] w-full">
+    <div className="w-full lg:max-w-[1100px]">
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-slate-900 tracking-tight mb-2">Files</h2>
         <p className="text-[15px] text-slate-500">
@@ -580,7 +733,7 @@ export default function BatchProcessingView({
       {batches.length > 0 && (
         <div className="mb-6">
           <label className="text-xs font-semibold text-slate-500 tracking-widest uppercase">Batch</label>
-          <div className="mt-2 w-full md:w-[520px]">
+          <div className="mt-2 w-full md:max-w-[520px]">
             <input
               value={batchSearch}
               onChange={(e) => setBatchSearch(e.target.value)}
@@ -604,7 +757,7 @@ export default function BatchProcessingView({
               }
               setBatchId(next);
             }}
-            className="mt-2 w-full md:w-[520px] px-4 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-slate-800 bg-slate-50"
+            className="mt-2 w-full md:max-w-[520px] px-4 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-slate-800 bg-slate-50"
             disabled={isLoading}
           >
             <option value="">All batches</option>
@@ -614,6 +767,30 @@ export default function BatchProcessingView({
               </option>
             ))}
           </select>
+          {batchId && batch && isAdmin && (
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={openBatchEdit}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded text-slate-700 hover:bg-slate-50 transition-colors text-[12px] font-semibold disabled:opacity-50"
+                disabled={isLoading}
+                title="Rename / change status"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                Edit batch
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmAction({ kind: 'batch', batchId, batchName: batch.name })}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-200 rounded text-red-700 hover:bg-red-50 transition-colors text-[12px] font-semibold disabled:opacity-50"
+                disabled={isLoading}
+                title="Soft delete or purge"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -708,6 +885,28 @@ export default function BatchProcessingView({
             <span className="text-[13px] font-semibold text-brand-600">
               {progress.done}/{progress.total} Completed ({progress.pct}%)
             </span>
+            <input
+              ref={uploadInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.zip,.docx"
+              className="hidden"
+              onChange={(e) => {
+                const next = (e.target.files ? Array.from(e.target.files) : []) as File[];
+                e.target.value = '';
+                void onUploadFiles(next);
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => uploadInputRef.current?.click()}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded text-slate-700 hover:bg-slate-50 transition-colors text-[12px] font-semibold disabled:opacity-50"
+              disabled={!batchId || isLoading || isUploading || batch?.status !== 'draft'}
+              title={batch?.status === 'draft' ? 'Upload documents to this batch' : 'Uploads are only allowed while the batch is in Draft status'}
+            >
+              <Upload className={`w-3.5 h-3.5 ${isUploading ? 'animate-bounce' : ''}`} />
+              Upload
+            </button>
             <button
               type="button"
               onClick={() => setExportDialogOpen(true)}
@@ -744,20 +943,22 @@ export default function BatchProcessingView({
             )}
             {exportInfo?.status === 'ready' && (
               <div className="ml-auto flex items-center gap-2">
-                <a
+                <button
+                  type="button"
+                  onClick={() => void downloadExportZip(batchId)}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-brand-600 border border-brand-600 rounded text-white hover:bg-brand-700 transition-colors text-[12px] font-semibold"
-                  href={`${apiBaseUrl}/api/batches/${encodeURIComponent(batchId)}/export/zip`}
                 >
                   <Download className="w-3.5 h-3.5" />
                   Download ZIP
-                </a>
-                <a
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void downloadExportManifest(batchId)}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded text-slate-700 hover:bg-slate-50 transition-colors text-[12px] font-semibold"
-                  href={`${apiBaseUrl}/api/batches/${encodeURIComponent(batchId)}/export/manifest`}
                 >
                   <Download className="w-3.5 h-3.5" />
                   Manifest
-                </a>
+                </button>
               </div>
             )}
           </div>
@@ -789,6 +990,24 @@ export default function BatchProcessingView({
                 <Tag className="w-3.5 h-3.5" />
                 Set category
               </button>
+              {isAdmin && batchId && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setConfirmAction({
+                      kind: 'docs',
+                      batchId,
+                      batchDocumentIds: selectedList,
+                      label: `${selectedList.length} selected`,
+                    })
+                  }
+                  disabled={isBulkSaving || isConfirmRunning || selectedList.length === 0}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-200 rounded text-red-700 hover:bg-red-50 transition-colors text-[12px] font-semibold disabled:opacity-50"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setSelectedIds(new Set())}
@@ -817,12 +1036,13 @@ export default function BatchProcessingView({
                 <th className="py-2.5 px-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Size</th>
                 <th className="py-2.5 px-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Category</th>
                 <th className="py-2.5 px-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                {isAdmin && <th className="py-2.5 px-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-[13px]">
               {displayDocs.length === 0 && (
                 <tr>
-                  <td className="py-4 px-4 text-slate-500 font-medium" colSpan={5}>
+                  <td className="py-4 px-4 text-slate-500 font-medium" colSpan={isAdmin ? 6 : 5}>
                     {isLoading ? 'Loading files…' : 'No files in this batch yet.'}
                   </td>
                 </tr>
@@ -873,6 +1093,26 @@ export default function BatchProcessingView({
                       )}
                     </div>
                   </td>
+                  {isAdmin && batchId && (
+                    <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setConfirmAction({
+                            kind: 'docs',
+                            batchId,
+                            batchDocumentIds: [doc.batchDocumentId],
+                            label: doc.originalFilename,
+                          })
+                        }
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-red-200 rounded text-red-700 hover:bg-red-50 transition-colors text-[12px] font-semibold"
+                        title="Soft delete or purge"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -906,7 +1146,7 @@ export default function BatchProcessingView({
       {reviewingId && reviewingBatchId && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-slate-900/40" onClick={closeReview}></div>
-          <div className="absolute inset-y-0 right-0 w-full max-w-[980px] bg-white shadow-2xl flex flex-col">
+          <div className="absolute inset-y-0 right-0 w-full md:max-w-[980px] bg-white shadow-2xl flex flex-col">
             <div className="h-[56px] border-b border-slate-200 px-4 flex items-center justify-between">
               <div className="min-w-0">
                 <div className="text-[13px] font-semibold text-slate-900 truncate">Document Review</div>
@@ -924,20 +1164,22 @@ export default function BatchProcessingView({
               </button>
             </div>
 
-            <div className="flex-1 min-h-0 flex">
-              <div className="flex-1 min-w-0 bg-slate-100">
+            <div className="flex-1 min-h-0 flex flex-col md:flex-row">
+              <div className="flex-1 min-w-0 bg-slate-100 min-h-[45vh] md:min-h-0">
                 {isReviewLoading ? (
                   <div className="h-full w-full flex items-center justify-center text-slate-600 text-sm font-medium">Loading preview…</div>
-                ) : (
+                ) : reviewFileUrl ? (
                   <iframe
                     title="PDF Preview"
                     className="w-full h-full"
-                    src={`${apiBaseUrl}/api/batches/${encodeURIComponent(reviewingBatchId)}/documents/${encodeURIComponent(reviewingId)}/file#pagemode=none&navpanes=0&zoom=page-width`}
+                    src={`${reviewFileUrl}#pagemode=none&navpanes=0&zoom=page-width`}
                   />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-slate-600 text-sm font-medium">Preview unavailable.</div>
                 )}
               </div>
 
-              <div className="w-[360px] border-l border-slate-200 flex flex-col">
+              <div className="w-full md:w-[360px] border-t border-slate-200 md:border-t-0 md:border-l flex flex-col">
                 <div className="p-4 overflow-y-auto flex-1 space-y-4">
                   <div>
                     <div className="text-[11px] font-semibold text-slate-400 tracking-widest uppercase mb-2">Category</div>
@@ -1052,17 +1294,149 @@ export default function BatchProcessingView({
                   {exportInfo?.status === 'ready' && (
                     <div>
                       <div className="text-[11px] font-semibold text-slate-400 tracking-widest uppercase mb-2">Export</div>
-                      <a
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void downloadExportedPdf({ batchId: reviewingBatchId, batchDocumentId: reviewingId, filename: reviewDetails?.originalFilename })
+                        }
                         className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 rounded text-slate-700 hover:bg-slate-50 transition-colors text-sm font-semibold"
-                        href={`${apiBaseUrl}/api/batches/${encodeURIComponent(reviewingBatchId)}/export/documents/${encodeURIComponent(reviewingId)}/file`}
                       >
                         <Download className="w-4 h-4" />
                         Download exported PDF
-                      </a>
+                      </button>
                     </div>
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {batchEditOpen && (
+        <div className="fixed inset-0 z-[60]">
+          <div className="absolute inset-0 bg-slate-900/40" onClick={() => setBatchEditOpen(false)}></div>
+          <div className="absolute top-1/2 left-1/2 w-[520px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+              <div className="text-[13px] font-semibold text-slate-900">Edit batch</div>
+              <button
+                type="button"
+                onClick={() => setBatchEditOpen(false)}
+                className="p-2 rounded hover:bg-slate-100 text-slate-500 transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="space-y-1">
+                <label className="text-[12px] font-semibold text-slate-600" htmlFor="batch_edit_name">
+                  Name
+                </label>
+                <input
+                  id="batch_edit_name"
+                  value={batchEditName}
+                  onChange={(e) => setBatchEditName(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded text-sm bg-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-slate-800"
+                  disabled={isBatchSaving}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[12px] font-semibold text-slate-600" htmlFor="batch_edit_status">
+                  Status
+                </label>
+                <select
+                  id="batch_edit_status"
+                  value={batchEditStatus}
+                  onChange={(e) => setBatchEditStatus(e.target.value as BatchStatus)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded text-sm bg-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                  disabled={isBatchSaving}
+                >
+                  {BATCH_STATUS_OPTIONS.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="px-4 py-3 border-t border-slate-200 bg-slate-50/70 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setBatchEditOpen(false)}
+                disabled={isBatchSaving}
+                className="px-3 py-2 bg-white border border-slate-200 rounded text-slate-700 hover:bg-slate-50 transition-colors text-sm font-semibold disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveBatchEdit()}
+                disabled={isBatchSaving || batchEditName.trim().length === 0}
+                className="px-3 py-2 bg-brand-600 rounded text-white hover:bg-brand-700 transition-colors text-sm font-semibold disabled:opacity-50"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmAction && (
+        <div className="fixed inset-0 z-[60]">
+          <div className="absolute inset-0 bg-slate-900/40" onClick={() => (!isConfirmRunning ? setConfirmAction(null) : undefined)}></div>
+          <div className="absolute top-1/2 left-1/2 w-[560px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+              <div className="text-[13px] font-semibold text-slate-900">Delete</div>
+              <button
+                type="button"
+                onClick={() => setConfirmAction(null)}
+                className="p-2 rounded hover:bg-slate-100 text-slate-500 transition-colors disabled:opacity-50"
+                aria-label="Close"
+                disabled={isConfirmRunning}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 text-sm text-slate-700 space-y-2">
+              {confirmAction.kind === 'batch' ? (
+                <div>
+                  Batch: <span className="font-semibold">{confirmAction.batchName}</span>
+                </div>
+              ) : (
+                <div>
+                  File(s): <span className="font-semibold">{confirmAction.label}</span>
+                </div>
+              )}
+              <div className="text-[13px] text-slate-500">
+                Soft delete hides items from the UI. Purge permanently removes DB records and attempts to delete files on disk.
+              </div>
+            </div>
+            <div className="px-4 py-3 border-t border-slate-200 bg-slate-50/70 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmAction(null)}
+                disabled={isConfirmRunning}
+                className="px-3 py-2 bg-white border border-slate-200 rounded text-slate-700 hover:bg-slate-50 transition-colors text-sm font-semibold disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void runConfirmAction('soft')}
+                disabled={isConfirmRunning}
+                className="px-3 py-2 bg-white border border-red-200 rounded text-red-700 hover:bg-red-50 transition-colors text-sm font-semibold disabled:opacity-50"
+              >
+                Soft delete
+              </button>
+              <button
+                type="button"
+                onClick={() => void runConfirmAction('purge')}
+                disabled={isConfirmRunning}
+                className="px-3 py-2 bg-red-600 rounded text-white hover:bg-red-700 transition-colors text-sm font-semibold disabled:opacity-50"
+              >
+                Purge
+              </button>
             </div>
           </div>
         </div>

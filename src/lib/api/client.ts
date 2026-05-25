@@ -12,6 +12,7 @@ import type {
   BatchSummary,
   CreateMappingProfileInput,
   CreateBatchInput,
+  UpdateBatchInput,
   CreateMappingRuleInput,
   DbInfoResponse,
   DbPingResponse,
@@ -194,9 +195,26 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(body),
       }),
+    update: (id: string, body: UpdateBatchInput) =>
+      request<Batch>(`/api/batches/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    delete: (id: string) =>
+      request<{ ok: true }>(`/api/batches/${id}`, {
+        method: 'DELETE',
+      }),
+    purge: (id: string) =>
+      request<{ ok: true }>(`/api/batches/${id}/purge`, {
+        method: 'DELETE',
+      }),
     get: (id: string) => request<BatchSummary>(`/api/batches/${id}`),
     start: (id: string) => request<BatchSummary>(`/api/batches/${id}/start`, { method: 'POST' }),
     listDocuments: (id: string) => request<BatchDocumentListItem[]>(`/api/batches/${id}/documents`),
+    deleteDocument: (batchId: string, batchDocumentId: string) =>
+      request<{ ok: true }>(`/api/batches/${batchId}/documents/${batchDocumentId}`, { method: 'DELETE' }),
+    purgeDocument: (batchId: string, batchDocumentId: string) =>
+      request<{ ok: true }>(`/api/batches/${batchId}/documents/${batchDocumentId}/purge`, { method: 'DELETE' }),
     getDocument: (batchId: string, batchDocumentId: string) =>
       request<BatchDocumentDetails>(`/api/batches/${batchId}/documents/${batchDocumentId}`),
     updateDocumentCategory: (batchId: string, batchDocumentId: string, body: { category: string }) =>
@@ -240,11 +258,13 @@ export const api = {
     queueMetrics: () => request<QueueMetricsResponse>('/api/batches/queue-metrics'),
     uploadDocuments: async (id: string, files: File[]): Promise<UploadBatchDocumentsResponse> => {
       const baseUrl = apiBaseUrl;
+      const token = authToken.get();
       const form = new FormData();
       for (const f of files) form.append('files', f, f.name);
       const res = await fetch(`${baseUrl}/api/batches/${id}/documents`, {
         method: 'POST',
         body: form,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       return handleResponse<UploadBatchDocumentsResponse>(res);
     },

@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { ApiError } from '../../../core/http/apiError.js';
 import { requireEnum, requireInt, requireString, requireUuid } from '../../../core/validation/validators.js';
 import { parseCreateBatchDTO } from '../dto/createBatch.dto.js';
+import { parseUpdateBatchDTO } from '../dto/updateBatch.dto.js';
 import { parseUpdateDocumentFieldsDTO } from '../dto/updateDocumentFields.dto.js';
 import { batchesService } from '../service/batches.service.js';
 
@@ -17,8 +18,28 @@ export const batchesController = {
   },
   create: async (req: Request, res: Response) => {
     const dto = parseCreateBatchDTO(req.body);
-    const created = await batchesService.create(dto);
+    const createdBy = req.authUser?.id ?? null;
+    const created = await batchesService.create({ ...dto, createdBy: dto.createdBy ?? createdBy ?? undefined });
     res.status(201).json(created);
+  },
+  update: async (req: Request, res: Response) => {
+    const id = requireUuid(req.params.id, 'id');
+    const dto = parseUpdateBatchDTO(req.body);
+    res.json(await batchesService.updateBatch({ id, ...dto }));
+  },
+  delete: async (req: Request, res: Response) => {
+    const id = requireUuid(req.params.id, 'id');
+    const deletedBy = req.authUser?.id ?? null;
+    if (!deletedBy) throw new ApiError({ status: 401, code: 'BAD_REQUEST', message: 'Missing token' });
+    await batchesService.softDeleteBatch({ id, deletedBy });
+    res.json({ ok: true as const });
+  },
+  purge: async (req: Request, res: Response) => {
+    const id = requireUuid(req.params.id, 'id');
+    const deletedBy = req.authUser?.id ?? null;
+    if (!deletedBy) throw new ApiError({ status: 401, code: 'BAD_REQUEST', message: 'Missing token' });
+    await batchesService.purgeBatch({ id, deletedBy });
+    res.json({ ok: true as const });
   },
   get: async (req: Request, res: Response) => {
     const id = requireUuid(req.params.id, 'id');
@@ -31,6 +52,22 @@ export const batchesController = {
   listDocuments: async (req: Request, res: Response) => {
     const id = requireUuid(req.params.id, 'id');
     res.json(await batchesService.listDocuments(id));
+  },
+  deleteDocument: async (req: Request, res: Response) => {
+    const batchId = requireUuid(req.params.id, 'id');
+    const batchDocumentId = requireUuid(req.params.batchDocumentId, 'batchDocumentId');
+    const deletedBy = req.authUser?.id ?? null;
+    if (!deletedBy) throw new ApiError({ status: 401, code: 'BAD_REQUEST', message: 'Missing token' });
+    await batchesService.softDeleteDocument({ batchId, batchDocumentId, deletedBy });
+    res.json({ ok: true as const });
+  },
+  purgeDocument: async (req: Request, res: Response) => {
+    const batchId = requireUuid(req.params.id, 'id');
+    const batchDocumentId = requireUuid(req.params.batchDocumentId, 'batchDocumentId');
+    const deletedBy = req.authUser?.id ?? null;
+    if (!deletedBy) throw new ApiError({ status: 401, code: 'BAD_REQUEST', message: 'Missing token' });
+    await batchesService.purgeDocument({ batchId, batchDocumentId, deletedBy });
+    res.json({ ok: true as const });
   },
   getDocument: async (req: Request, res: Response) => {
     const batchId = requireUuid(req.params.id, 'id');

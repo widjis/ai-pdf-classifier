@@ -6,7 +6,7 @@ import multer from 'multer';
 import { asyncHandler } from '../../../core/http/asyncHandler.js';
 import { ApiError } from '../../../core/http/apiError.js';
 import { env } from '../../../core/config/env.js';
-import { requireAuth } from '../../../core/http/authGuards.js';
+import { requireAdmin, requireAuth } from '../../../core/http/authGuards.js';
 import { batchesController } from '../controller/batches.controller.js';
 
 const router = Router();
@@ -47,18 +47,25 @@ const upload = multer({
   },
 });
 
+router.use(requireAuth);
+
 router.get('/recent-activity', asyncHandler(batchesController.recentActivity));
 router.get('/queue-metrics', asyncHandler(batchesController.queueMetrics));
 router.get('/', asyncHandler(batchesController.list));
 router.post('/', asyncHandler(batchesController.create));
+router.patch('/:id', requireAdmin, asyncHandler(batchesController.update));
+router.delete('/:id', requireAdmin, asyncHandler(batchesController.delete));
+router.delete('/:id/purge', requireAdmin, asyncHandler(batchesController.purge));
 router.post('/:id/documents', upload.array('files'), asyncHandler(batchesController.uploadDocuments));
 router.get('/:id/documents', asyncHandler(batchesController.listDocuments));
+router.delete('/:id/documents/:batchDocumentId', requireAdmin, asyncHandler(batchesController.deleteDocument));
+router.delete('/:id/documents/:batchDocumentId/purge', requireAdmin, asyncHandler(batchesController.purgeDocument));
 router.post('/:id/documents/bulk-approve', asyncHandler(batchesController.bulkApproveDocuments));
 router.post('/:id/documents/bulk-category', asyncHandler(batchesController.bulkSetCategory));
 router.get('/:id/documents/:batchDocumentId', asyncHandler(batchesController.getDocument));
 router.get('/:id/documents/:batchDocumentId/file', asyncHandler(batchesController.downloadDocumentFile));
 router.patch('/:id/documents/:batchDocumentId', asyncHandler(batchesController.updateDocumentCategory));
-router.patch('/:id/documents/:batchDocumentId/fields', requireAuth, asyncHandler(batchesController.updateDocumentFields));
+router.patch('/:id/documents/:batchDocumentId/fields', asyncHandler(batchesController.updateDocumentFields));
 router.post('/:id/documents/:batchDocumentId/approve', asyncHandler(batchesController.approveDocument));
 router.post('/:id/start', asyncHandler(batchesController.start));
 router.get('/:id/export', asyncHandler(batchesController.getLatestExport));

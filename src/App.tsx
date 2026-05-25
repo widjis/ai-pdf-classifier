@@ -22,9 +22,11 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [isAuthBootstrapping, setIsAuthBootstrapping] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   // Pre-load the document review doc to simplify debugging if navigating directly
 
   const navigateTo = (view: ViewState) => {
+    setIsSidebarOpen(false);
     if (view === 'manageUsers' && authUser?.role !== 'admin') {
       setCurrentView('settings');
       return;
@@ -101,7 +103,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen w-full relative isolate overflow-hidden bg-slate-950 px-4 py-6 font-sans text-slate-900">
+    <div className="min-h-screen w-full relative isolate overflow-hidden bg-slate-950 px-0 sm:px-4 py-0 sm:py-6 font-sans text-slate-900">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(148,163,184,0.25)_1px,transparent_0)] [background-size:28px_28px] opacity-60" />
         <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(0,83,219,0.22),transparent_38%,rgba(16,185,129,0.18))]" />
@@ -109,7 +111,29 @@ export default function App() {
         <div className="absolute -bottom-40 -right-44 w-[560px] h-[560px] bg-emerald-500/20 rounded-full blur-[130px]" />
       </div>
 
-      <div className="relative mx-auto h-[calc(100vh-48px)] w-full max-w-[1480px] rounded-3xl overflow-hidden border border-white/10 bg-white/5 shadow-[0_30px_120px_-45px_rgba(0,0,0,0.85)] backdrop-blur-xl">
+      {isSidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-slate-950/60" onClick={() => setIsSidebarOpen(false)} />
+          <div className="absolute inset-y-0 left-0">
+            <Sidebar
+              authUser={authUser}
+              currentView={currentView}
+              onNavigate={navigateTo}
+              activeCategory={activeCategory}
+              onSelectCategory={(category) => {
+                setActiveCategory(category);
+                setActiveBatchId(null);
+                navigateTo('files');
+              }}
+              className="max-w-[85vw]"
+              showCloseButton
+              onClose={() => setIsSidebarOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="relative mx-auto min-h-[100svh] sm:min-h-0 sm:h-[calc(100vh-48px)] w-full max-w-[1480px] rounded-none sm:rounded-3xl overflow-hidden border border-white/10 bg-white/5 shadow-[0_30px_120px_-45px_rgba(0,0,0,0.85)] backdrop-blur-xl">
         <div className="flex h-full overflow-hidden">
           <Sidebar
             authUser={authUser}
@@ -121,17 +145,19 @@ export default function App() {
               setActiveBatchId(null);
               navigateTo('files');
             }}
+            className="hidden lg:flex"
           />
 
           <div className="flex-1 flex flex-col min-w-0 bg-[#f7f9fb] h-full">
             {currentView !== 'review' && (
-              <Header currentView={currentView} onNavigate={navigateTo} />
+              <Header currentView={currentView} onNavigate={navigateTo} onToggleSidebar={() => setIsSidebarOpen(true)} />
             )}
 
-            <main className="flex-1 overflow-y-auto px-8 pt-8 pb-12 w-full h-full relative">
+            <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-10 sm:pb-12 w-full h-full relative">
               {currentView === 'dashboard' && <DashboardView onReview={handleReviewFile} onCreateBatch={handleCreateBatchFromDashboard} />}
               {currentView === 'files' && (
                 <BatchProcessingView
+                  authUser={authUser}
                   onReview={handleReviewFile}
                   activeBatchId={activeBatchId}
                   categoryFilter={activeCategory}

@@ -78,6 +78,8 @@ export const env = {
   ldapBindPassword: getOptionalTrimmed('LDAP_BIND_PASSWORD'),
   ldapAllowedGroups: getOptionalTrimmed('LDAP_ALLOWED_GROUPS'),
   ldapTlsRejectUnauthorized: parseBoolean(process.env.LDAP_TLS_REJECT_UNAUTHORIZED, true),
+  ldapTlsCaFile: getOptionalTrimmed('LDAP_TLS_CA_FILE'),
+  ldapTlsCaBase64: getOptionalTrimmed('LDAP_TLS_CA_BASE64'),
   uploadDir: getOptionalTrimmed('UPLOAD_DIR') ?? path.resolve(process.cwd(), 'storage', 'uploads'),
   exportDir: getOptionalTrimmed('EXPORT_DIR') ?? path.resolve(process.cwd(), 'storage', 'exports'),
 } as const;

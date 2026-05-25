@@ -21,6 +21,14 @@ const sha256File = async (filePath: string): Promise<string> =>
     stream.on('end', () => resolve(hash.digest('hex')));
   });
 
+const safeUnlink = async (filePath: string): Promise<void> => {
+  await fsp.unlink(filePath).catch(() => undefined);
+};
+
+const safeRm = async (targetPath: string): Promise<void> => {
+  await fsp.rm(targetPath, { recursive: true, force: true }).catch(() => undefined);
+};
+
 const processingBatches = new Set<string>();
 
 const sanitizePathSegment = (value: string): string => {
@@ -340,6 +348,44 @@ export const batchesService = {
     return batchesRepository.create(args);
   },
 
+  updateBatch: async (args: { id: string; name?: string; status?: Batch['status'] }): Promise<Batch> => {
+    const existing = await batchesRepository.getById(args.id);
+    if (!existing) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Batch not found' });
+    if (!args.name && !args.status) return existing;
+    return batchesRepository.updateBatch({ id: args.id, name: args.name, status: args.status });
+  },
+
+  softDeleteBatch: async (args: { id: string; deletedBy: string }): Promise<void> => {
+    const ok = await batchesRepository.softDeleteBatch({ id: args.id, deletedBy: args.deletedBy });
+    if (!ok) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Batch not found' });
+    await batchesRepository.softDeleteBatchDocumentsByBatchId({ batchId: args.id, deletedBy: args.deletedBy });
+  },
+
+  purgeBatch: async (args: { id: string; deletedBy: string }): Promise<void> => {
+    const existing = await batchesRepository.getById(args.id);
+    if (!existing) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Batch not found' });
+
+    const [docs, exportRoots] = await Promise.all([
+      batchesRepository.listBatchDocumentsForPurge(args.id),
+      batchesRepository.listExportOutputPathsForBatch(args.id),
+    ]);
+
+    await batchesRepository.hardDeleteBatch(args.id);
+
+    for (const d of docs) {
+      const deleted = await batchesRepository.deleteDocumentIfOrphan(d.documentId);
+      if (deleted) await safeUnlink(d.storagePath);
+    }
+
+    const batchUploadDir = path.join(env.uploadDir, args.id);
+    await safeRm(batchUploadDir);
+
+    for (const root of exportRoots) {
+      await safeRm(root);
+      await safeUnlink(`${root}.zip`);
+    }
+  },
+
   getById: async (id: string): Promise<BatchSummary> => {
     const batch = await batchesRepository.getById(id);
     if (!batch) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Batch not found' });
@@ -388,6 +434,31 @@ export const batchesService = {
     const batch = await batchesRepository.getById(batchId);
     if (!batch) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Batch not found' });
     return batchesRepository.listBatchDocuments(batchId);
+  },
+
+  softDeleteDocument: async (args: { batchId: string; batchDocumentId: string; deletedBy: string }): Promise<void> => {
+    const batch = await batchesRepository.getById(args.batchId);
+    if (!batch) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Batch not found' });
+    const ok = await batchesRepository.softDeleteBatchDocument({
+      batchId: args.batchId,
+      batchDocumentId: args.batchDocumentId,
+      deletedBy: args.deletedBy,
+    });
+    if (!ok) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Batch document not found' });
+  },
+
+  purgeDocument: async (args: { batchId: string; batchDocumentId: string; deletedBy: string }): Promise<void> => {
+    const batch = await batchesRepository.getById(args.batchId);
+    if (!batch) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Batch not found' });
+
+    const info = await batchesRepository.getBatchDocumentPurgeInfo({ batchId: args.batchId, batchDocumentId: args.batchDocumentId });
+    if (!info) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Batch document not found' });
+
+    const deleted = await batchesRepository.hardDeleteBatchDocument({ batchId: args.batchId, batchDocumentId: args.batchDocumentId });
+    if (!deleted) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Batch document not found' });
+
+    const docDeleted = await batchesRepository.deleteDocumentIfOrphan(info.documentId);
+    if (docDeleted) await safeUnlink(info.storagePath);
   },
 
   getDocumentDetails: async (args: { batchId: string; batchDocumentId: string }) => {
