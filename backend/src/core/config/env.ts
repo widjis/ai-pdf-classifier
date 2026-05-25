@@ -82,4 +82,5 @@ export const env = {
   ldapTlsCaBase64: getOptionalTrimmed('LDAP_TLS_CA_BASE64'),
   uploadDir: getOptionalTrimmed('UPLOAD_DIR') ?? path.resolve(process.cwd(), 'storage', 'uploads'),
   exportDir: getOptionalTrimmed('EXPORT_DIR') ?? path.resolve(process.cwd(), 'storage', 'exports'),
+  sharedFolderPath: getOptionalTrimmed('SHARED_FOLDER_PATH'),
 } as const;

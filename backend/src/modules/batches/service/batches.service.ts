@@ -29,6 +29,35 @@ const safeRm = async (targetPath: string): Promise<void> => {
   await fsp.rm(targetPath, { recursive: true, force: true }).catch(() => undefined);
 };
 
+const safeMoveFile = async (args: { srcPath: string; destPath: string }): Promise<void> => {
+  try {
+    await fsp.rename(args.srcPath, args.destPath);
+    return;
+  } catch (err) {
+    const code = err && typeof err === 'object' && 'code' in err ? String((err as { code?: unknown }).code) : null;
+    if (code !== 'EXDEV') throw err;
+  }
+
+  await fsp.copyFile(args.srcPath, args.destPath);
+  await safeUnlink(args.srcPath);
+};
+
+const copyDirRecursive = async (args: { srcDir: string; destDir: string }): Promise<void> => {
+  await fsp.mkdir(args.destDir, { recursive: true });
+  const entries = await fsp.readdir(args.srcDir, { withFileTypes: true });
+  for (const ent of entries) {
+    const src = path.join(args.srcDir, ent.name);
+    const dest = path.join(args.destDir, ent.name);
+    if (ent.isDirectory()) {
+      await copyDirRecursive({ srcDir: src, destDir: dest });
+      continue;
+    }
+    if (ent.isFile()) {
+      await fsp.copyFile(src, dest);
+    }
+  }
+};
+
 const processingBatches = new Set<string>();
 
 const sanitizePathSegment = (value: string): string => {
@@ -417,13 +446,29 @@ export const batchesService = {
 
     for (const f of files) {
       const sha256 = await sha256File(f.path);
+      let storagePath = f.path;
+
+      if (env.sharedFolderPath) {
+        const now = new Date();
+        const yyyy = String(now.getFullYear());
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const batchFolder = `${sanitizePathSegment(batch.name)}_${batch.id.slice(0, 8)}`;
+        const destDir = path.join(env.sharedFolderPath, 'uploads', yyyy, mm, dd, batchFolder);
+        await fsp.mkdir(destDir, { recursive: true });
+
+        const destPath = path.join(destDir, path.basename(f.path));
+        await safeMoveFile({ srcPath: f.path, destPath });
+        storagePath = destPath;
+      }
+
       await batchesRepository.addUploadedDocumentToBatch({
         batchId,
         originalFilename: f.originalName,
         mimeType: f.mimeType,
         sizeBytes: f.sizeBytes,
         sha256,
-        storagePath: f.path,
+        storagePath,
       });
     }
 
@@ -697,6 +742,12 @@ export const batchesService = {
 
       const zipPath = `${outputRoot}.zip`;
       const zipSize = await buildZipFromDirectory({ dirPath: outputRoot, zipPath });
+
+      if (env.sharedFolderPath) {
+        const destRoot = path.join(env.sharedFolderPath, 'exports', path.basename(outputRoot));
+        await safeRm(destRoot);
+        await copyDirRecursive({ srcDir: outputRoot, destDir: destRoot });
+      }
 
       await batchesRepository.setExportResult({
         exportId: exportRow.id,

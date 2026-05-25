@@ -150,7 +150,22 @@ export default function App() {
 
           <div className="flex-1 flex flex-col min-w-0 bg-[#f7f9fb] h-full">
             {currentView !== 'review' && (
-              <Header currentView={currentView} onNavigate={navigateTo} onToggleSidebar={() => setIsSidebarOpen(true)} />
+              <Header
+                currentView={currentView}
+                onNavigate={navigateTo}
+                onToggleSidebar={() => setIsSidebarOpen(true)}
+                authUser={authUser}
+                onSignOut={() => {
+                  authToken.clear();
+                  setAuthUser(null);
+                  setCurrentView('files');
+                  setSelectedFile(null);
+                  setPendingNewBatchFiles([]);
+                  setActiveBatchId(null);
+                  setActiveCategory(null);
+                  setIsSidebarOpen(false);
+                }}
+              />
             )}
 
             <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-10 sm:pb-12 w-full h-full relative">

@@ -1,21 +1,25 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, HelpCircle, Loader2, Menu, Search } from 'lucide-react';
+import { Bell, ChevronDown, HelpCircle, Loader2, LogOut, Menu, Search } from 'lucide-react';
 import { ViewState } from '../types';
 import { api } from '../lib/api/client';
-import type { Batch, BatchSummary } from '../lib/api/types';
+import type { AuthUser, Batch, BatchSummary } from '../lib/api/types';
 
 interface HeaderProps {
   currentView: ViewState;
   onNavigate: (view: ViewState) => void;
   onToggleSidebar?: () => void;
+  authUser: AuthUser;
+  onSignOut: () => void;
 }
 
-export default function Header({ currentView, onNavigate, onToggleSidebar }: HeaderProps) {
+export default function Header({ currentView, onNavigate, onToggleSidebar, authUser, onSignOut }: HeaderProps) {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isLoadingBatches, setIsLoadingBatches] = useState(false);
   const [batchError, setBatchError] = useState<string | null>(null);
   const [batchSummaries, setBatchSummaries] = useState<BatchSummary[]>([]);
   const popoverRef = useRef<HTMLDivElement | null>(null);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   const loadBatchSummaries = async () => {
     setIsLoadingBatches(true);
@@ -61,6 +65,36 @@ export default function Header({ currentView, onNavigate, onToggleSidebar }: Hea
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [isNotificationsOpen]);
+
+  useEffect(() => {
+    if (!isUserMenuOpen) return;
+    const onMouseDown = (evt: MouseEvent) => {
+      const node = userMenuRef.current;
+      if (!node) return;
+      if (evt.target instanceof Node && node.contains(evt.target)) return;
+      setIsUserMenuOpen(false);
+    };
+    const onKeyDown = (evt: KeyboardEvent) => {
+      if (evt.key === 'Escape') setIsUserMenuOpen(false);
+    };
+    window.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isUserMenuOpen]);
+
+  const initials = useMemo(() => {
+    const raw = authUser.displayName || authUser.email;
+    const parts = raw
+      .split(/\s+/g)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0);
+    const first = parts[0]?.[0] ?? 'U';
+    const second = (parts.length > 1 ? parts[1]?.[0] : parts[0]?.[1]) ?? '';
+    return `${first}${second}`.toUpperCase();
+  }, [authUser.displayName, authUser.email]);
 
   const activeCount = useMemo(() => {
     return batchSummaries.filter((b) => b.status === 'running' || b.totals.processing > 0 || b.totals.queued > 0).length;
@@ -232,9 +266,49 @@ export default function Header({ currentView, onNavigate, onToggleSidebar }: Hea
           <button className="hover:text-slate-800 transition-colors cursor-pointer">
             <HelpCircle className="w-5 h-5" />
           </button>
-          <button className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border border-slate-200 cursor-pointer shadow-sm">
-             <img src="https://i.pravatar.cc/150?u=a042581f4e" alt="User" className="w-full h-full object-cover" />
-          </button>
+          <div className="relative" ref={userMenuRef}>
+            <button
+              type="button"
+              className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-1.5 py-1.5 shadow-sm hover:bg-white transition-colors"
+              onClick={() => {
+                setIsNotificationsOpen(false);
+                setIsUserMenuOpen((v) => !v);
+              }}
+              aria-haspopup="menu"
+              aria-expanded={isUserMenuOpen}
+              title={authUser.displayName}
+            >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-b from-slate-100 to-slate-200 flex items-center justify-center overflow-hidden border border-slate-200">
+                <span className="text-[11px] font-bold tracking-wide text-slate-700">{initials}</span>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isUserMenuOpen && (
+              <div className="absolute right-0 mt-3 w-[280px] max-w-[calc(100vw-24px)] rounded-xl border border-slate-200 bg-white shadow-lg z-50 overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-200">
+                  <div className="text-sm font-semibold text-slate-900 truncate">{authUser.displayName}</div>
+                  <div className="text-xs text-slate-500 truncate">{authUser.email}</div>
+                  <div className="mt-2 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                    {authUser.role}
+                  </div>
+                </div>
+                <div className="p-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      onSignOut();
+                    }}
+                    className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>

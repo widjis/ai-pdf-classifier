@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import fsp from 'node:fs/promises';
 import { ApiError } from '../../../core/http/apiError.js';
 import { requireEnum, requireInt, requireString, requireUuid } from '../../../core/validation/validators.js';
 import { parseCreateBatchDTO } from '../dto/createBatch.dto.js';
@@ -170,7 +171,10 @@ export const batchesController = {
     const file = await batchesService.getExportZipFile({ batchId });
     res.setHeader('Content-Type', file.mimeType);
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.fileName)}"`);
-    res.sendFile(file.filePath, { acceptRanges: true });
+    res.sendFile(file.filePath, { acceptRanges: true }, (err) => {
+      if (err) return;
+      void fsp.unlink(file.filePath).catch(() => undefined);
+    });
   },
   downloadExportedDocumentFile: async (req: Request, res: Response) => {
     const batchId = requireUuid(req.params.id, 'id');
