@@ -6,7 +6,21 @@ export type ApiErrorResponse = {
   };
 };
 
-export type HealthResponse = { status: 'ok' };
+export type HealthResponse = {
+  status: 'ok';
+  runtime?: {
+    platform: 'mac' | 'windows' | 'linux';
+    isDocker: boolean;
+    nodeEnv: string;
+  };
+  storage?: {
+    uploadDir: { path: string; ok: boolean; error?: string };
+    exportDir: { path: string; ok: boolean; error?: string };
+    sharedFolder:
+      | { configured: false; ok: true }
+      | { configured: true; path: string; ok: boolean; error?: string };
+  };
+};
 export type DbPingResponse = { ok: boolean };
 export type DbInfoResponse = { ok: boolean; db: string; user: string };
 

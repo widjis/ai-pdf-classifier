@@ -1,0 +1,39 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      POSTGRES_URL: ${POSTGRES_URL}
+      POSTGRES_SSL: ${POSTGRES_SSL:-false}
+      POSTGRES_SSL_REJECT_UNAUTHORIZED: ${POSTGRES_SSL_REJECT_UNAUTHORIZED:-false}
+      SECRETS_ENCRYPTION_KEY_BASE64: ${SECRETS_ENCRYPTION_KEY_BASE64:-}
+      AUTH_TOKEN_KEY_BASE64: ${AUTH_TOKEN_KEY_BASE64:-}
+      LOCAL_ADMIN_EMAIL: ${LOCAL_ADMIN_EMAIL:-}
+      LOCAL_ADMIN_PASSWORD: ${LOCAL_ADMIN_PASSWORD:-}
+      LOCAL_ADMIN_DISPLAY_NAME: ${LOCAL_ADMIN_DISPLAY_NAME:-}
+      LDAP_URL: ${LDAP_URL:-}
+      LDAP_BASE_DN: ${LDAP_BASE_DN:-}
+      LDAP_SEARCH_BASE: ${LDAP_SEARCH_BASE:-}
+      LDAP_BIND_DN: ${LDAP_BIND_DN:-}
+      LDAP_BIND_PASSWORD: ${LDAP_BIND_PASSWORD:-}
+      LDAP_ALLOWED_GROUPS: ${LDAP_ALLOWED_GROUPS:-}
+      LDAP_TLS_REJECT_UNAUTHORIZED: ${LDAP_TLS_REJECT_UNAUTHORIZED:-true}
+      LDAP_TLS_CA_FILE: ${LDAP_TLS_CA_FILE:-}
+      LDAP_TLS_CA_BASE64: ${LDAP_TLS_CA_BASE64:-}
+      SHARED_FOLDER_PATH: /shared
+    volumes:
+      - ${SHARED_FOLDER_HOST_PATH:-./shared}:/shared:rw
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: .
+    ports:
+      - ${FRONTEND_PORT:-8080}:80
+    depends_on:
+      - backend

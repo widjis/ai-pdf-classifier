@@ -44,6 +44,7 @@ export default function NewBatchView({ initialFiles, onCancel, onStart }: NewBat
   const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [storageBlockedReason, setStorageBlockedReason] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const aiModels = useMemo(
@@ -111,6 +112,34 @@ export default function NewBatchView({ initialFiles, onCancel, onStart }: NewBat
     };
   }, [mappingProfileId]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void api.health()
+      .then((health) => {
+        if (cancelled) return;
+        const shared = health.storage?.sharedFolder;
+        if (!shared || shared.configured === false) {
+          setStorageBlockedReason(null);
+          return;
+        }
+        if (shared.ok) {
+          setStorageBlockedReason(null);
+          return;
+        }
+        const base = `Shared storage is not accessible (${shared.path}).`;
+        const detail = shared.error ? ` ${shared.error}` : '';
+        setStorageBlockedReason(`${base}${detail}`);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : 'Failed to check storage readiness.';
+        setStorageBlockedReason(message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const accept = useMemo(() => ['.pdf', '.zip', '.docx'].join(','), []);
 
   const addFiles = (incoming: File[]) => {
@@ -136,6 +165,7 @@ export default function NewBatchView({ initialFiles, onCancel, onStart }: NewBat
     if (isStarting) return;
     if (files.length === 0) return;
     if (batchName.trim().length === 0) return;
+    if (storageBlockedReason) return;
 
     setIsStarting(true);
     setErrorMessage(null);
@@ -170,6 +200,11 @@ export default function NewBatchView({ initialFiles, onCancel, onStart }: NewBat
           {errorMessage && (
             <div className="border border-red-200 bg-red-50 text-red-700 rounded px-4 py-3 text-sm font-medium">
               {errorMessage}
+            </div>
+          )}
+          {storageBlockedReason && (
+            <div className="border border-amber-200 bg-amber-50 text-amber-800 rounded px-4 py-3 text-sm font-medium">
+              {storageBlockedReason}
             </div>
           )}
           <div className="flex flex-col gap-1.5">
@@ -310,7 +345,13 @@ export default function NewBatchView({ initialFiles, onCancel, onStart }: NewBat
             type="button"
             onClick={startRun}
             className="px-5 py-2 bg-brand-600 text-white rounded text-sm font-semibold hover:bg-brand-700 cursor-pointer transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isStarting || files.length === 0 || batchName.trim().length === 0 || (profiles.length === 0 && !isLoadingProfiles)}
+            disabled={
+              isStarting ||
+              Boolean(storageBlockedReason) ||
+              files.length === 0 ||
+              batchName.trim().length === 0 ||
+              (profiles.length === 0 && !isLoadingProfiles)
+            }
           >
             <Play className="w-4 h-4" />
             {isStarting ? 'Starting…' : 'Start Classification Run'}
