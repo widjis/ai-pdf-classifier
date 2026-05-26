@@ -4,8 +4,8 @@ import { env } from './core/config/env.js';
 const app = createApp();
 
 const startServer = (port: number) => {
-  const server = app.listen(port, () => {
-    console.log(`Backend listening on http://localhost:${port}`);
+  const server = app.listen(port, '0.0.0.0', () => {
+    console.log(`Backend listening on http://0.0.0.0:${port}`);
   });
 
   server.on('error', (err) => {
