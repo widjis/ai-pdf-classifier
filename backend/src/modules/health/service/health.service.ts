@@ -32,6 +32,56 @@ const checkDir = async (dirPath: string): Promise<{ ok: boolean; error?: string 
   }
 };
 
+const decodeProcPath = (raw: string): string =>
+  raw
+    .replaceAll('\\040', ' ')
+    .replaceAll('\\011', '\t')
+    .replaceAll('\\012', '\n')
+    .replaceAll('\\134', '\\');
+
+const findMountForPath = async (mountPath: string): Promise<{ source: string; fstype: string } | null> => {
+  try {
+    const raw = await fsp.readFile('/proc/mounts', 'utf8');
+    const lines = raw.split('\n').filter((l) => l.trim().length > 0);
+    for (const line of lines) {
+      const parts = line.split(' ');
+      if (parts.length < 3) continue;
+      const fstype = parts[2];
+      const sourceRaw = parts[0];
+      const targetRaw = parts[1];
+      if (!sourceRaw || !targetRaw || !fstype) continue;
+      const source = decodeProcPath(sourceRaw);
+      const target = decodeProcPath(targetRaw);
+      if (target === mountPath) return { source, fstype };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const checkSharedFolder = async (args: {
+  sharedFolderPath: string;
+  requireCifsMount: boolean;
+}): Promise<{ ok: boolean; error?: string }> => {
+  const base = await checkDir(args.sharedFolderPath);
+  if (!base.ok) return base;
+
+  if (!args.requireCifsMount) return base;
+  if (process.platform !== 'linux') return base;
+
+  const resolved = path.resolve(args.sharedFolderPath);
+  const mount = await findMountForPath(resolved);
+  if (!mount) return { ok: false, error: `Shared folder is not mounted at ${resolved}` };
+
+  const allowed = new Set(['cifs', 'smbfs']);
+  if (!allowed.has(mount.fstype)) {
+    return { ok: false, error: `Shared folder is not mounted as CIFS (mount type: ${mount.fstype})` };
+  }
+
+  return { ok: true };
+};
+
 export const healthService = {
   getHealth: async () => {
     const isDocker = detectDocker();
@@ -40,11 +90,12 @@ export const healthService = {
     const uploadDir = env.uploadDir;
     const exportDir = env.exportDir;
     const sharedFolderPath = env.sharedFolderPath;
+    const requireCifsMount = Boolean(env.cifsSharePath && env.cifsSharePath.trim().length > 0);
 
     const [uploadStatus, exportStatus, sharedStatus] = await Promise.all([
       checkDir(uploadDir),
       checkDir(exportDir),
-      sharedFolderPath ? checkDir(sharedFolderPath) : Promise.resolve({ ok: true as const }),
+      sharedFolderPath ? checkSharedFolder({ sharedFolderPath, requireCifsMount }) : Promise.resolve({ ok: true as const }),
     ]);
 
     return {

@@ -27,8 +27,9 @@ services:
       LDAP_TLS_CA_FILE: ${LDAP_TLS_CA_FILE:-}
       LDAP_TLS_CA_BASE64: ${LDAP_TLS_CA_BASE64:-}
       SHARED_FOLDER_PATH: ${SHARED_FOLDER_PATH:-/app/scanned_documents}
+      CIFS_SHARE_PATH: ${CIFS_SHARE_PATH:-}
     volumes:
-      - ${SHARED_FOLDER_HOST_PATH:-./shared}:${SHARED_FOLDER_PATH:-/app/scanned_documents}:rw
+      - shared_cifs:${SHARED_FOLDER_PATH:-/app/scanned_documents}:rw
     ports:
       - ${BACKEND_PORT:-5005}:5005
 
@@ -42,3 +43,11 @@ services:
       - ${FRONTEND_PORT:-5058}:80
     depends_on:
       - backend
+
+volumes:
+  shared_cifs:
+    driver: local
+    driver_opts:
+      type: cifs
+      device: ${CIFS_SHARE:-//server/share}
+      o: username=${CIFS_USERNAME:-},password=${CIFS_PASSWORD:-},domain=${CIFS_DOMAIN:-},vers=${CIFS_VERS:-3.0},rw,noperm,dir_mode=0777,file_mode=0777

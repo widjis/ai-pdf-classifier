@@ -98,6 +98,7 @@ export default function BatchProcessingView({
   const [batchSearch, setBatchSearch] = useState<string>('');
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [storageBlockedReason, setStorageBlockedReason] = useState<string | null>(null);
   const [reviewFileUrl, setReviewFileUrl] = useState<string | null>(null);
   const [batchEditOpen, setBatchEditOpen] = useState(false);
   const [batchEditName, setBatchEditName] = useState('');
@@ -138,6 +139,34 @@ export default function BatchProcessingView({
     if (!activeBatchId) return;
     setBatchId(activeBatchId);
   }, [activeBatchId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void api.health()
+      .then((health) => {
+        if (cancelled) return;
+        const shared = health.storage?.sharedFolder;
+        if (!shared || shared.configured === false) {
+          setStorageBlockedReason(null);
+          return;
+        }
+        if (shared.ok) {
+          setStorageBlockedReason(null);
+          return;
+        }
+        const base = `Shared storage is not accessible (${shared.path}).`;
+        const detail = shared.error ? ` ${shared.error}` : '';
+        setStorageBlockedReason(`${base}${detail}`);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : 'Failed to check storage readiness.';
+        setStorageBlockedReason(message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -401,6 +430,10 @@ export default function BatchProcessingView({
   const onUploadFiles = async (files: File[]) => {
     if (!batchId) return;
     if (files.length === 0) return;
+    if (storageBlockedReason) {
+      setErrorMessage(storageBlockedReason);
+      return;
+    }
     setIsUploading(true);
     setErrorMessage(null);
     try {
@@ -729,6 +762,11 @@ export default function BatchProcessingView({
           {errorMessage}
         </div>
       )}
+      {storageBlockedReason && (
+        <div className="mb-6 border border-amber-200 bg-amber-50 text-amber-800 rounded px-4 py-3 text-sm font-medium">
+          {storageBlockedReason}
+        </div>
+      )}
 
       {batches.length > 0 && (
         <div className="mb-6">
@@ -901,8 +939,14 @@ export default function BatchProcessingView({
               type="button"
               onClick={() => uploadInputRef.current?.click()}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded text-slate-700 hover:bg-slate-50 transition-colors text-[12px] font-semibold disabled:opacity-50"
-              disabled={!batchId || isLoading || isUploading || batch?.status !== 'draft'}
-              title={batch?.status === 'draft' ? 'Upload documents to this batch' : 'Uploads are only allowed while the batch is in Draft status'}
+              disabled={!batchId || isLoading || isUploading || batch?.status !== 'draft' || Boolean(storageBlockedReason)}
+              title={
+                storageBlockedReason
+                  ? storageBlockedReason
+                  : batch?.status === 'draft'
+                    ? 'Upload documents to this batch'
+                    : 'Uploads are only allowed while the batch is in Draft status'
+              }
             >
               <Upload className={`w-3.5 h-3.5 ${isUploading ? 'animate-bounce' : ''}`} />
               Upload

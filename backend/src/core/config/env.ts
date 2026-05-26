@@ -83,4 +83,5 @@ export const env = {
   uploadDir: getOptionalTrimmed('UPLOAD_DIR') ?? path.resolve(process.cwd(), 'storage', 'uploads'),
   exportDir: getOptionalTrimmed('EXPORT_DIR') ?? path.resolve(process.cwd(), 'storage', 'exports'),
   sharedFolderPath: getOptionalTrimmed('SHARED_FOLDER_PATH'),
+  cifsSharePath: getOptionalTrimmed('CIFS_SHARE_PATH'),
 } as const;

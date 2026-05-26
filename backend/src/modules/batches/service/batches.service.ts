@@ -346,6 +346,34 @@ const requireOpenAiKey = async (): Promise<string> => {
   return decryptSecret(encrypted);
 };
 
+const decodeProcPath = (raw: string): string =>
+  raw
+    .replaceAll('\\040', ' ')
+    .replaceAll('\\011', '\t')
+    .replaceAll('\\012', '\n')
+    .replaceAll('\\134', '\\');
+
+const findMountForPath = async (mountPath: string): Promise<{ source: string; fstype: string } | null> => {
+  try {
+    const raw = await fsp.readFile('/proc/mounts', 'utf8');
+    const lines = raw.split('\n').filter((l) => l.trim().length > 0);
+    for (const line of lines) {
+      const parts = line.split(' ');
+      if (parts.length < 3) continue;
+      const sourceRaw = parts[0];
+      const targetRaw = parts[1];
+      const fstype = parts[2];
+      if (!sourceRaw || !targetRaw || !fstype) continue;
+      const source = decodeProcPath(sourceRaw);
+      const target = decodeProcPath(targetRaw);
+      if (target === mountPath) return { source, fstype };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 const assertSharedFolderAccessible = async (): Promise<void> => {
   if (!env.sharedFolderPath) return;
   const root = env.sharedFolderPath;
@@ -355,6 +383,19 @@ const assertSharedFolderAccessible = async (): Promise<void> => {
       throw new Error('SHARED_FOLDER_PATH is not a directory');
     }
     await fsp.access(root, fs.constants.R_OK | fs.constants.W_OK);
+
+    const requireCifsMount = Boolean(env.cifsSharePath && env.cifsSharePath.trim().length > 0);
+    if (requireCifsMount && process.platform === 'linux') {
+      const resolved = path.resolve(root);
+      const mount = await findMountForPath(resolved);
+      if (!mount) {
+        throw new Error(`Shared folder is not mounted at ${resolved}`);
+      }
+      const allowed = new Set(['cifs', 'smbfs']);
+      if (!allowed.has(mount.fstype)) {
+        throw new Error(`Shared folder is not mounted as CIFS (mount type: ${mount.fstype})`);
+      }
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Shared folder is not accessible';
     throw new ApiError({
@@ -443,6 +484,7 @@ export const batchesService = {
   },
 
   start: async (id: string): Promise<BatchSummary> => {
+    await assertSharedFolderAccessible();
     const existing = await batchesRepository.getById(id);
     if (!existing) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Batch not found' });
     if (existing.status !== 'draft') {
@@ -457,6 +499,7 @@ export const batchesService = {
     batchId: string,
     files: Array<{ path: string; originalName: string; mimeType: string | null; sizeBytes: number }>,
   ): Promise<{ added: number }> => {
+    await assertSharedFolderAccessible();
     const batch = await batchesRepository.getById(batchId);
     if (!batch) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Batch not found' });
     if (batch.status !== 'draft') {
