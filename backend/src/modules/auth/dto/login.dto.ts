@@ -11,18 +11,21 @@ export type LoginDTO = {
 
 export const parseLoginDTO = (body: unknown): LoginDTO => {
   const b = body as Record<string, unknown>;
-  const email = requireString(b.email, 'email').toLowerCase();
+  const rawIdentity = requireString(b.email, 'email').trim();
+  const identity = (rawIdentity.includes('\\') ? rawIdentity.split('\\').pop() ?? rawIdentity : rawIdentity).toLowerCase();
   const password = requireString(b.password, 'password');
   const methodRaw = optionalString(b.method) ?? 'ldap';
   const method = requireEnum(methodRaw, METHODS, 'method');
   if (method === 'ldap') {
-    if (!email.includes('@') || email.length < 5) {
-      throw new ApiError({ status: 400, code: 'BAD_REQUEST', message: 'Invalid email' });
+    const looksLikeEmail = identity.includes('@') && identity.length >= 5;
+    const looksLikeUsername = /^[a-z0-9._-]{3,}$/i.test(identity);
+    if (!looksLikeEmail && !looksLikeUsername) {
+      throw new ApiError({ status: 400, code: 'BAD_REQUEST', message: 'Invalid email or username' });
     }
   } else {
-    if (email.trim().length < 3) {
+    if (identity.trim().length < 3) {
       throw new ApiError({ status: 400, code: 'BAD_REQUEST', message: 'Invalid username' });
     }
   }
-  return { email, password, method };
+  return { email: identity, password, method };
 };

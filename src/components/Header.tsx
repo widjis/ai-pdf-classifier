@@ -132,7 +132,7 @@ export default function Header({ currentView, onNavigate, onToggleSidebar, authU
         {onToggleSidebar ? (
           <button
             type="button"
-            className="md:hidden -ml-1 p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+            className="lg:hidden -ml-1 p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
             onClick={onToggleSidebar}
             aria-label="Open sidebar"
           >

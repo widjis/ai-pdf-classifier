@@ -346,6 +346,25 @@ const requireOpenAiKey = async (): Promise<string> => {
   return decryptSecret(encrypted);
 };
 
+const assertSharedFolderAccessible = async (): Promise<void> => {
+  if (!env.sharedFolderPath) return;
+  const root = env.sharedFolderPath;
+  try {
+    const stat = await fsp.stat(root);
+    if (!stat.isDirectory()) {
+      throw new Error('SHARED_FOLDER_PATH is not a directory');
+    }
+    await fsp.access(root, fs.constants.R_OK | fs.constants.W_OK);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Shared folder is not accessible';
+    throw new ApiError({
+      status: 503,
+      code: 'STORAGE_UNAVAILABLE',
+      message: `Shared folder is not accessible (${root}). ${message}`,
+    });
+  }
+};
+
 export const batchesService = {
   list: async (): Promise<Batch[]> => batchesRepository.list(),
 
@@ -374,6 +393,7 @@ export const batchesService = {
     docTypeHandling: 'standard' | 'ocr' | 'scanned';
     createdBy?: string;
   }): Promise<Batch> => {
+    await assertSharedFolderAccessible();
     return batchesRepository.create(args);
   },
 

@@ -5,6 +5,7 @@ export type ApiErrorCode =
   | 'CONFLICT'
   | 'LDAP_SEARCH_FAILED'
   | 'LDAP_LOOKUP_FAILED'
+  | 'STORAGE_UNAVAILABLE'
   | 'INTERNAL_ERROR';
 
 export class ApiError extends Error {

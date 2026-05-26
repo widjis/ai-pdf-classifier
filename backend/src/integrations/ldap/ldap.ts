@@ -193,7 +193,7 @@ export const searchLdapUsers = async (query: string, limit = 10): Promise<LdapUs
   }
 };
 
-export const authenticateWithLdap = async (email: string, password: string): Promise<LdapUser | null> => {
+export const authenticateWithLdap = async (identity: string, password: string): Promise<LdapUser | null> => {
   const cfg = requireLdapConfig();
   const client = new Client({
     url: cfg.url,
@@ -207,12 +207,14 @@ export const authenticateWithLdap = async (email: string, password: string): Pro
       await client.bind(cfg.bindDn, cfg.bindPassword);
     }
 
-    const escapedEmail = escapeLdapFilterValue(email.trim().toLowerCase());
-    const filter = `(|(mail=${escapedEmail})(userPrincipalName=${escapedEmail})(proxyAddresses=*${escapedEmail}*))`;
+    const normalized = identity.trim().toLowerCase();
+    if (normalized.length === 0) return null;
+    const escaped = escapeLdapFilterValue(normalized);
+    const filter = `(|(mail=${escaped})(userPrincipalName=${escaped})(proxyAddresses=*${escaped}*)(sAMAccountName=${escaped}))`;
     const result = await client.search(cfg.searchBase, {
       scope: 'sub',
       filter,
-      attributes: ['dn', 'displayName', 'cn', 'mail', 'userPrincipalName', 'proxyAddresses', 'memberOf'],
+      attributes: ['dn', 'displayName', 'cn', 'mail', 'userPrincipalName', 'proxyAddresses', 'memberOf', 'sAMAccountName'],
       sizeLimit: 2,
       paged: false,
     });
@@ -233,8 +235,10 @@ export const authenticateWithLdap = async (email: string, password: string): Pro
     }
 
     const displayNameRaw = entry?.displayName ?? entry?.cn;
-    const displayName = typeof displayNameRaw === 'string' && displayNameRaw.trim().length > 0 ? displayNameRaw.trim() : email.trim();
-    return { dn, email: email.trim().toLowerCase(), displayName };
+    const resolvedEmail = getEmailFromEntry(entry) ?? (normalized.includes('@') ? normalized : undefined);
+    if (!resolvedEmail) return null;
+    const displayName = typeof displayNameRaw === 'string' && displayNameRaw.trim().length > 0 ? displayNameRaw.trim() : resolvedEmail;
+    return { dn, email: resolvedEmail.trim().toLowerCase(), displayName };
   } finally {
     await client.unbind().catch(() => undefined);
   }

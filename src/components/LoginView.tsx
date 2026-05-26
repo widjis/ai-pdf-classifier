@@ -155,16 +155,16 @@ export default function LoginView({ onSuccess }: { onSuccess: (user: AuthUser) =
             <form onSubmit={(e) => void onSubmit(e)} className="mt-7 space-y-5">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5" htmlFor="login_email">
-                  {method === 'ldap' ? 'Corporate email' : 'Email'}
+                  {method === 'ldap' ? 'Corporate email or username' : 'Email'}
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     id="login_email"
-                    type={method === 'ldap' ? 'email' : 'text'}
+                    type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder={method === 'ldap' ? 'name@company.com' : 'mti.admin'}
+                    placeholder={method === 'ldap' ? 'email.address@merdekabattery.com or user.name' : 'mti.admin'}
                     autoComplete={method === 'ldap' ? 'username' : 'username'}
                     className="w-full pl-9 pr-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15 text-slate-900 placeholder-slate-400 bg-slate-50/60 transition-colors"
                   />
