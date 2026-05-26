@@ -36,6 +36,6 @@ services:
       args:
         VITE_API_URL: .
     ports:
-      - ${FRONTEND_PORT:-5057}:80
+      - ${FRONTEND_PORT:-5058}:80
     depends_on:
       - backend
