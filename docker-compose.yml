@@ -5,7 +5,7 @@ services:
       dockerfile: backend/Dockerfile
     environment:
       NODE_ENV: production
-      PORT: 4000
+      PORT: 5005
       POSTGRES_URL: ${POSTGRES_URL}
       POSTGRES_SSL: ${POSTGRES_SSL:-false}
       POSTGRES_SSL_REJECT_UNAUTHORIZED: ${POSTGRES_SSL_REJECT_UNAUTHORIZED:-false}
@@ -26,6 +26,8 @@ services:
       SHARED_FOLDER_PATH: /shared
     volumes:
       - ${SHARED_FOLDER_HOST_PATH:-./shared}:/shared:rw
+    ports:
+      - ${BACKEND_PORT:-5005}:5005
 
   frontend:
     build:
@@ -34,6 +36,6 @@ services:
       args:
         VITE_API_URL: .
     ports:
-      - ${FRONTEND_PORT:-8080}:80
+      - ${FRONTEND_PORT:-5057}:80
     depends_on:
       - backend

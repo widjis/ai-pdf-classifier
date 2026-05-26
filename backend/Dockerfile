@@ -18,12 +18,12 @@ RUN npm --prefix backend run build
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app/backend
 ENV NODE_ENV=production
-ENV PORT=4000
+ENV PORT=5005
 ENV UPLOAD_DIR=/app/storage/uploads
 ENV EXPORT_DIR=/app/storage/exports
 RUN mkdir -p /app/storage/uploads /app/storage/exports
 COPY --from=build /app/backend/package.json ./package.json
 COPY --from=build /app/backend/node_modules ./node_modules
 COPY --from=build /app/backend/dist ./dist
-EXPOSE 4000
+EXPOSE 5005
 CMD ["node","dist/server.js"]
