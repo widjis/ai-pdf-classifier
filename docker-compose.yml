@@ -49,5 +49,5 @@ volumes:
     driver: local
     driver_opts:
       type: cifs
-      device: ${CIFS_SHARE:-//server/share}
-      o: username=${CIFS_USERNAME:-},password=${CIFS_PASSWORD:-},domain=${CIFS_DOMAIN:-},vers=${CIFS_VERS:-3.0},rw,noperm,dir_mode=0777,file_mode=0777
+      device: "${CIFS_SHARE_PATH:?CIFS_SHARE_PATH is required (example: //10.0.0.10/share)}"
+      o: "username=${DOMAIN_USERNAME:?DOMAIN_USERNAME is required},password=${DOMAIN_PASSWORD:?DOMAIN_PASSWORD is required},vers=${CIFS_VERS:-3.0},rw,noperm,dir_mode=0777,file_mode=0777"
