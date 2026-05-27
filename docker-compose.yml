@@ -26,10 +26,10 @@ services:
       LDAP_TLS_REJECT_UNAUTHORIZED: ${LDAP_TLS_REJECT_UNAUTHORIZED:-true}
       LDAP_TLS_CA_FILE: ${LDAP_TLS_CA_FILE:-}
       LDAP_TLS_CA_BASE64: ${LDAP_TLS_CA_BASE64:-}
-      SHARED_FOLDER_PATH: ${SHARED_FOLDER_PATH:-/app/scanned_documents}
+      SHARED_FOLDER_PATH: ${SHARED_FOLDER_PATH:-/mnt/share}
       CIFS_SHARE_PATH: ${CIFS_SHARE_PATH:-}
     volumes:
-      - shared_cifs:${SHARED_FOLDER_PATH:-/app/scanned_documents}:rw
+      - shared_cifs:/mnt/share:rw
     ports:
       - ${BACKEND_PORT:-5005}:5005
 
@@ -50,4 +50,4 @@ volumes:
     driver_opts:
       type: cifs
       device: "${CIFS_SHARE_PATH:?CIFS_SHARE_PATH is required (example: //10.0.0.10/share)}"
-      o: "username=${DOMAIN_USERNAME:?DOMAIN_USERNAME is required},password=${DOMAIN_PASSWORD:?DOMAIN_PASSWORD is required},vers=${CIFS_VERS:-3.0},rw,noperm,dir_mode=0777,file_mode=0777"
+      o: "username=${DOMAIN_USERNAME:?DOMAIN_USERNAME is required},password=${DOMAIN_PASSWORD:?DOMAIN_PASSWORD is required},domain=${CIFS_DOMAIN:-},vers=${CIFS_VERS:-3.0},sec=${CIFS_SEC:-ntlmssp},rw,noperm,iocharset=utf8,dir_mode=0777,file_mode=0777"
