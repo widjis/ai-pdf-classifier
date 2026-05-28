@@ -27,6 +27,7 @@ export default function Sidebar({
   showCloseButton = false,
   onClose,
 }: SidebarProps) {
+  const isAdmin = authUser.role === 'admin';
   const settingsActive = currentView === 'settings' || currentView === 'aiConfiguration' || currentView === 'manageUsers';
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
@@ -196,47 +197,49 @@ export default function Sidebar({
       </nav>
 
       <div className="p-3 border-t border-white/10 space-y-0.5">
-        <button
-          onClick={() => onNavigate('settings')}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold rounded-xl cursor-pointer transition-colors ${
-            settingsActive ? 'bg-white/10 text-white' : 'text-white/70 hover:bg-white/5 hover:text-white/90'
-          }`}
-        >
-          <Settings className="w-4 h-4" /> Settings
-        </button>
-        {settingsActive && (
-          <div className="pl-2 space-y-0.5">
+        {isAdmin ? (
+          <>
             <button
               onClick={() => onNavigate('settings')}
-              className={`w-full flex items-center gap-3 px-3 py-1.5 text-[13px] font-semibold rounded-xl cursor-pointer transition-colors ${
-                currentView === 'settings' ? 'bg-white/10 text-white' : 'text-white/65 hover:bg-white/5 hover:text-white/90'
+              className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold rounded-xl cursor-pointer transition-colors ${
+                settingsActive ? 'bg-white/10 text-white' : 'text-white/70 hover:bg-white/5 hover:text-white/90'
               }`}
             >
-              <span className="w-4" />
-              General
+              <Settings className="w-4 h-4" /> Settings
             </button>
-            <button
-              onClick={() => onNavigate('aiConfiguration')}
-              className={`w-full flex items-center gap-3 px-3 py-1.5 text-[13px] font-semibold rounded-xl cursor-pointer transition-colors ${
-                currentView === 'aiConfiguration' ? 'bg-white/10 text-white' : 'text-white/65 hover:bg-white/5 hover:text-white/90'
-              }`}
-            >
-              <KeyRound className="w-4 h-4 text-white/45" />
-              AI Configuration
-            </button>
-            {authUser.role === 'admin' && (
-              <button
-                onClick={() => onNavigate('manageUsers')}
-                className={`w-full flex items-center gap-3 px-3 py-1.5 text-[13px] font-semibold rounded-xl cursor-pointer transition-colors ${
-                  currentView === 'manageUsers' ? 'bg-white/10 text-white' : 'text-white/65 hover:bg-white/5 hover:text-white/90'
-                }`}
-              >
-                <Users className="w-4 h-4 text-white/45" />
-                Manage Users
-              </button>
+            {settingsActive && (
+              <div className="pl-2 space-y-0.5">
+                <button
+                  onClick={() => onNavigate('settings')}
+                  className={`w-full flex items-center gap-3 px-3 py-1.5 text-[13px] font-semibold rounded-xl cursor-pointer transition-colors ${
+                    currentView === 'settings' ? 'bg-white/10 text-white' : 'text-white/65 hover:bg-white/5 hover:text-white/90'
+                  }`}
+                >
+                  <span className="w-4" />
+                  General
+                </button>
+                <button
+                  onClick={() => onNavigate('aiConfiguration')}
+                  className={`w-full flex items-center gap-3 px-3 py-1.5 text-[13px] font-semibold rounded-xl cursor-pointer transition-colors ${
+                    currentView === 'aiConfiguration' ? 'bg-white/10 text-white' : 'text-white/65 hover:bg-white/5 hover:text-white/90'
+                  }`}
+                >
+                  <KeyRound className="w-4 h-4 text-white/45" />
+                  AI Configuration
+                </button>
+                <button
+                  onClick={() => onNavigate('manageUsers')}
+                  className={`w-full flex items-center gap-3 px-3 py-1.5 text-[13px] font-semibold rounded-xl cursor-pointer transition-colors ${
+                    currentView === 'manageUsers' ? 'bg-white/10 text-white' : 'text-white/65 hover:bg-white/5 hover:text-white/90'
+                  }`}
+                >
+                  <Users className="w-4 h-4 text-white/45" />
+                  Manage Users
+                </button>
+              </div>
             )}
-          </div>
-        )}
+          </>
+        ) : null}
         <button className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold rounded-xl text-white/70 hover:bg-white/5 hover:text-white/90 cursor-pointer transition-colors">
           <BarChart2 className="w-4 h-4 text-white/55" /> System Status
         </button>

@@ -27,8 +27,9 @@ export default function App() {
 
   const navigateTo = (view: ViewState) => {
     setIsSidebarOpen(false);
-    if (view === 'manageUsers' && authUser?.role !== 'admin') {
-      setCurrentView('settings');
+    const isAdmin = authUser?.role === 'admin';
+    if (!isAdmin && (view === 'settings' || view === 'aiConfiguration' || view === 'manageUsers')) {
+      setCurrentView('files');
       return;
     }
     setCurrentView(view);
@@ -101,6 +102,9 @@ export default function App() {
       />
     );
   }
+
+  const isAdmin = authUser.role === 'admin';
+  const isSettingsView = currentView === 'settings' || currentView === 'aiConfiguration' || currentView === 'manageUsers';
 
   return (
     <div className="min-h-screen w-full relative isolate overflow-hidden bg-slate-950 px-0 sm:px-4 py-0 sm:py-6 font-sans text-slate-900">
@@ -194,9 +198,21 @@ export default function App() {
                   }}
                 />
               )}
-              {currentView === 'settings' && <SettingsView authUser={authUser} section="general" />}
-              {currentView === 'aiConfiguration' && <SettingsView authUser={authUser} section="aiConfiguration" />}
-              {currentView === 'manageUsers' && <SettingsView authUser={authUser} section="manageUsers" />}
+              {isSettingsView && !isAdmin ? (
+                <div className="max-w-[1040px] w-full">
+                  <div className="mb-8">
+                    <h2 className="text-3xl font-bold text-slate-900 tracking-tight mb-2">Settings</h2>
+                    <p className="text-[15px] text-slate-600">This section is restricted to admins.</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="text-sm font-semibold text-slate-900">Access denied</div>
+                    <div className="mt-1 text-sm text-slate-600">Ask an administrator to grant you admin role.</div>
+                  </div>
+                </div>
+              ) : null}
+              {currentView === 'settings' && isAdmin && <SettingsView authUser={authUser} section="general" />}
+              {currentView === 'aiConfiguration' && isAdmin && <SettingsView authUser={authUser} section="aiConfiguration" />}
+              {currentView === 'manageUsers' && isAdmin && <SettingsView authUser={authUser} section="manageUsers" />}
               {currentView === 'review' && selectedFile && (
                 <DocumentReviewView
                   file={selectedFile}

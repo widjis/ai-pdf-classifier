@@ -55,6 +55,7 @@ const emptyReviewFields = (): Record<BatchDocumentFieldsKey, string> => ({
 });
 
 const BATCH_STATUS_OPTIONS: BatchStatus[] = ['draft', 'running', 'needs_review', 'completed', 'failed', 'canceled'];
+const PAGE_SIZE = 25;
 
 type AllBatchesDocumentRow = BatchDocumentListItem & {
   batchId: string;
@@ -134,6 +135,8 @@ export default function BatchProcessingView({
   const [exportGroupByCategory, setExportGroupByCategory] = useState<boolean>(false);
   const [exportNumberingMode, setExportNumberingMode] = useState<'global' | 'per_category'>('global');
   const [exportStartingIndexByCategory, setExportStartingIndexByCategory] = useState<Record<string, number>>({});
+  const [batchPage, setBatchPage] = useState(0);
+  const [allPage, setAllPage] = useState(0);
 
   useEffect(() => {
     if (!activeBatchId) return;
@@ -701,12 +704,40 @@ export default function BatchProcessingView({
     return documents.filter((d) => (d.finalCategory ?? '').trim().toLowerCase() === target);
   }, [categoryFilter, documents]);
 
-  const displayDocs = filteredDocuments.slice(0, 25);
-  const displayAllDocs = allFilteredDocuments.slice(0, 25);
+  useEffect(() => {
+    setBatchPage(0);
+  }, [batchId, categoryFilter]);
+
+  useEffect(() => {
+    setAllPage(0);
+  }, [batchSearch, categoryFilter]);
+
+  const batchTotal = filteredDocuments.length;
+  const allTotal = allFilteredDocuments.length;
+  const batchPageCount = Math.max(1, Math.ceil(batchTotal / PAGE_SIZE));
+  const allPageCount = Math.max(1, Math.ceil(allTotal / PAGE_SIZE));
+  const safeBatchPage = Math.max(0, Math.min(batchPage, batchPageCount - 1));
+  const safeAllPage = Math.max(0, Math.min(allPage, allPageCount - 1));
+
+  const batchStart = safeBatchPage * PAGE_SIZE;
+  const batchEnd = Math.min(batchStart + PAGE_SIZE, batchTotal);
+  const allStart = safeAllPage * PAGE_SIZE;
+  const allEnd = Math.min(allStart + PAGE_SIZE, allTotal);
+
+  const displayDocs = filteredDocuments.slice(batchStart, batchEnd);
+  const displayAllDocs = allFilteredDocuments.slice(allStart, allEnd);
 
   const toggleAll = () => {
-    if (selectedIds.size === displayDocs.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(displayDocs.map((d) => d.batchDocumentId)));
+    if (displayDocs.length === 0) return;
+    const next = new Set(selectedIds);
+    const allSelected = displayDocs.every((d) => next.has(d.batchDocumentId));
+    if (allSelected) {
+      for (const d of displayDocs) next.delete(d.batchDocumentId);
+      setSelectedIds(next);
+      return;
+    }
+    for (const d of displayDocs) next.add(d.batchDocumentId);
+    setSelectedIds(next);
   };
 
   const progress = useMemo(() => {
@@ -836,7 +867,7 @@ export default function BatchProcessingView({
         <div className="bg-white border border-slate-200 rounded shadow-sm overflow-hidden flex flex-col mb-6">
           <div className="border-b border-slate-200 bg-slate-50/70 px-4 py-2.5 flex items-center justify-between">
             <div className="text-[13px] text-slate-700 font-semibold">
-              Showing 1-{displayAllDocs.length} of {allFilteredDocuments.length} files
+              {allTotal === 0 ? 'Showing 0 files' : `Showing ${allStart + 1}-${allEnd} of ${allTotal} files`}
             </div>
             <button
               type="button"
@@ -911,6 +942,32 @@ export default function BatchProcessingView({
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="bg-slate-50/80 border-t border-slate-200 p-3 px-4 flex items-center justify-between text-[13px] text-slate-500 font-medium">
+            <span className="tabular-nums">
+              Page {safeAllPage + 1}/{allPageCount}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                className="px-1.5 py-1.5 bg-white border border-slate-200 rounded text-slate-600 hover:bg-slate-100 cursor-pointer shadow-sm transition-colors disabled:opacity-50"
+                onClick={() => setAllPage((p) => Math.max(0, p - 1))}
+                disabled={isLoading || safeAllPage <= 0}
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                className="px-1.5 py-1.5 bg-white border border-slate-200 rounded text-slate-600 hover:bg-slate-100 cursor-pointer shadow-sm transition-colors disabled:opacity-50"
+                onClick={() => setAllPage((p) => Math.min(allPageCount - 1, p + 1))}
+                disabled={isLoading || safeAllPage >= allPageCount - 1}
+                aria-label="Next page"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1165,20 +1222,27 @@ export default function BatchProcessingView({
 
         <div className="bg-slate-50/80 border-t border-slate-200 p-3 px-4 flex items-center justify-between text-[13px] text-slate-500 font-medium">
           <span>
-            Showing 1-{displayDocs.length} of {documents.length} files
+            {batchTotal === 0 ? 'Showing 0 files' : `Showing ${batchStart + 1}-${batchEnd} of ${batchTotal} files`}
           </span>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              className="px-1.5 py-1.5 bg-white border border-slate-200 rounded text-slate-400 hover:bg-slate-100 cursor-pointer disabled:opacity-50 transition-colors"
-              disabled
+              className="px-1.5 py-1.5 bg-white border border-slate-200 rounded text-slate-600 hover:bg-slate-100 cursor-pointer shadow-sm transition-colors disabled:opacity-50"
+              onClick={() => setBatchPage((p) => Math.max(0, p - 1))}
+              disabled={isLoading || safeBatchPage <= 0}
+              aria-label="Previous page"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
+            <span className="px-2 text-[12px] font-semibold text-slate-500 tabular-nums">
+              {safeBatchPage + 1}/{batchPageCount}
+            </span>
             <button
               type="button"
-              className="px-1.5 py-1.5 bg-white border border-slate-200 rounded text-slate-600 hover:bg-slate-100 cursor-pointer shadow-sm transition-colors"
-              disabled
+              className="px-1.5 py-1.5 bg-white border border-slate-200 rounded text-slate-600 hover:bg-slate-100 cursor-pointer shadow-sm transition-colors disabled:opacity-50"
+              onClick={() => setBatchPage((p) => Math.min(batchPageCount - 1, p + 1))}
+              disabled={isLoading || safeBatchPage >= batchPageCount - 1}
+              aria-label="Next page"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
