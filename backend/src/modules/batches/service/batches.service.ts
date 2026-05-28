@@ -191,7 +191,7 @@ const buildPrompt = (categories: string[]) => {
     '{',
     '  "category": string,',
     '  "confidence": number,',
-    '  "fields": { "documentNumber": string|null, "personName": string|null, "documentDate": string|null, "organization": string|null, "notes": string|null },',
+    '  "fields": { "requester": string|null, "personName": string|null, "documentNumber": string|null, "documentDate": string|null, "organization": string|null, "notes": string|null },',
     '  "anchors": string[]',
     '}',
     '',
@@ -224,6 +224,7 @@ const normalizeModelOutput = (args: { categories: string[]; content: string }) =
   if (!Number.isFinite(confidence) || confidence < 0 || confidence > 100) throw new Error(`Invalid confidence: ${String(parsed.confidence)}`);
 
   const normFields: Record<string, string | null> = {
+    requester: typeof fields.requester === 'string' ? fields.requester : null,
     documentNumber: typeof fields.documentNumber === 'string' ? fields.documentNumber : null,
     personName: typeof fields.personName === 'string' ? fields.personName : null,
     documentDate: typeof fields.documentDate === 'string' ? fields.documentDate : null,
@@ -238,6 +239,21 @@ const normalizeModelOutput = (args: { categories: string[]; content: string }) =
     .slice(0, 8);
 
   return { category, confidence, fields: normFields, anchors: normAnchors };
+};
+
+const normalizeFieldsForCategory = (args: { category: string; fields: Record<string, string | null> }): Record<string, string | null> => {
+  const trimmed = (v: string | null | undefined) => (typeof v === 'string' ? v.trim() : '');
+  const fields = { ...args.fields };
+  const requester = trimmed(fields.requester);
+  const personName = trimmed(fields.personName);
+
+  if (args.category === 'COF Scan') {
+    if (requester.length === 0 && personName.length > 0) fields.requester = personName;
+    if (personName.length === 0 && requester.length > 0) fields.personName = requester;
+    if (requester.length > 0 && personName.length > 0 && requester !== personName) fields.requester = personName;
+  }
+
+  return fields;
 };
 
 const callOpenAiVision = async (args: { apiKey: string; model: string; imagePng: Buffer; categories: string[] }) => {
@@ -618,6 +634,16 @@ export const batchesService = {
   }) => {
     const details = await batchesRepository.getBatchDocumentDetails({ batchId: args.batchId, batchDocumentId: args.batchDocumentId });
     if (!details) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Batch document not found' });
+    const response = details.responseJson && typeof details.responseJson === 'object' ? (details.responseJson as Record<string, unknown>) : null;
+    const category = typeof response?.category === 'string' ? response.category : details.finalCategory ?? '';
+    if (category === 'COF Scan') {
+      const nextFields = { ...args.fields };
+      const requester = typeof nextFields.requester === 'string' ? nextFields.requester.trim() : '';
+      const personName = typeof nextFields.personName === 'string' ? nextFields.personName.trim() : '';
+      if (requester.length === 0 && personName.length > 0) nextFields.requester = personName;
+      if (personName.length === 0 && requester.length > 0) nextFields.personName = requester;
+      args = { ...args, fields: nextFields };
+    }
     const updated = await batchesRepository.updateLatestClassificationRunFields({
       batchDocumentId: args.batchDocumentId,
       fields: args.fields,
@@ -629,6 +655,17 @@ export const batchesService = {
   approveDocument: async (args: { batchId: string; batchDocumentId: string }) => {
     const details = await batchesRepository.getBatchDocumentDetails({ batchId: args.batchId, batchDocumentId: args.batchDocumentId });
     if (!details) throw new ApiError({ status: 404, code: 'NOT_FOUND', message: 'Batch document not found' });
+    const response = details.responseJson && typeof details.responseJson === 'object' ? (details.responseJson as Record<string, unknown>) : null;
+    const category = typeof response?.category === 'string' ? response.category : details.finalCategory ?? '';
+    const fieldsRaw = response && typeof response.fields === 'object' && response.fields !== null ? (response.fields as Record<string, unknown>) : null;
+    const requester = typeof fieldsRaw?.requester === 'string' ? fieldsRaw.requester.trim() : '';
+    const personName = typeof fieldsRaw?.personName === 'string' ? fieldsRaw.personName.trim() : '';
+    if (category === 'COF Scan' && (requester.length === 0 || requester !== personName) && personName.length > 0) {
+      await batchesRepository.updateLatestClassificationRunFields({
+        batchDocumentId: args.batchDocumentId,
+        fields: { requester: personName },
+      });
+    }
     await batchesRepository.approveBatchDocument({ batchDocumentId: args.batchDocumentId });
     return batchesService.getDocumentDetails({ batchId: args.batchId, batchDocumentId: args.batchDocumentId });
   },
@@ -952,10 +989,11 @@ export const batchesService = {
             overrides,
           });
 
+          const finalFields = normalizeFieldsForCategory({ category: overridden.category, fields: normalized.fields });
           const responseJson = {
             category: overridden.category,
             confidence: overridden.confidence,
-            fields: normalized.fields,
+            fields: finalFields,
             anchors: normalized.anchors,
             meta,
           };

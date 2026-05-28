@@ -82,11 +82,22 @@ where u.email = 'admin@local'
   and not exists (select 1 from user_preferences up where up.user_id = u.id);
 
 update user_preferences up
-set default_mapping_profile_id = p.id,
-    default_ai_provider = 'gemini',
-    default_ai_model = 'gemini-1.5-pro',
-    updated_at = now()
+set default_mapping_profile_id = coalesce(up.default_mapping_profile_id, p.id),
+    default_ai_provider = coalesce(up.default_ai_provider, 'gemini'),
+    default_ai_model = coalesce(up.default_ai_model, 'gemini-1.5-pro'),
+    updated_at = case
+      when up.default_mapping_profile_id is null
+        or up.default_ai_provider is null
+        or up.default_ai_model is null
+      then now()
+      else up.updated_at
+    end
 from app_users u
 join mapping_profiles p on p.name = 'Standard ICT Mappings' and p.version = 1
 where up.user_id = u.id
-  and u.email = 'admin@local';
+  and u.email = 'admin@local'
+  and (
+    up.default_mapping_profile_id is null
+    or up.default_ai_provider is null
+    or up.default_ai_model is null
+  );
