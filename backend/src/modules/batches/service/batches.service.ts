@@ -353,10 +353,17 @@ const decodeProcPath = (raw: string): string =>
     .replaceAll('\\012', '\n')
     .replaceAll('\\134', '\\');
 
-const findMountForPath = async (mountPath: string): Promise<{ source: string; fstype: string } | null> => {
+const normalizeResolvedPath = (resolvedPath: string): string => {
+  if (resolvedPath.length <= 1) return resolvedPath;
+  return resolvedPath.replace(/\/+$/g, '');
+};
+
+const findMountForPath = async (mountPath: string): Promise<{ source: string; fstype: string; target: string } | null> => {
   try {
     const raw = await fsp.readFile('/proc/mounts', 'utf8');
     const lines = raw.split('\n').filter((l) => l.trim().length > 0);
+    const normalized = normalizeResolvedPath(mountPath);
+    let best: { source: string; fstype: string; target: string } | null = null;
     for (const line of lines) {
       const parts = line.split(' ');
       if (parts.length < 3) continue;
@@ -365,10 +372,11 @@ const findMountForPath = async (mountPath: string): Promise<{ source: string; fs
       const fstype = parts[2];
       if (!sourceRaw || !targetRaw || !fstype) continue;
       const source = decodeProcPath(sourceRaw);
-      const target = decodeProcPath(targetRaw);
-      if (target === mountPath) return { source, fstype };
+      const target = normalizeResolvedPath(decodeProcPath(targetRaw));
+      if (normalized !== target && !normalized.startsWith(`${target}/`)) continue;
+      if (!best || target.length > best.target.length) best = { source, fstype, target };
     }
-    return null;
+    return best;
   } catch {
     return null;
   }
@@ -378,24 +386,25 @@ const assertSharedFolderAccessible = async (): Promise<void> => {
   if (!env.sharedFolderPath) return;
   const root = env.sharedFolderPath;
   try {
-    const stat = await fsp.stat(root);
-    if (!stat.isDirectory()) {
-      throw new Error('SHARED_FOLDER_PATH is not a directory');
-    }
-    await fsp.access(root, fs.constants.R_OK | fs.constants.W_OK);
-
     const requireCifsMount = Boolean(env.cifsSharePath && env.cifsSharePath.trim().length > 0);
     if (requireCifsMount && process.platform === 'linux') {
       const resolved = path.resolve(root);
       const mount = await findMountForPath(resolved);
       if (!mount) {
-        throw new Error(`Shared folder is not mounted at ${resolved}`);
+        throw new Error(`Shared folder is not mounted at ${normalizeResolvedPath(resolved)}`);
       }
       const allowed = new Set(['cifs', 'smbfs']);
       if (!allowed.has(mount.fstype)) {
         throw new Error(`Shared folder is not mounted as CIFS (mount type: ${mount.fstype})`);
       }
     }
+
+    await fsp.mkdir(root, { recursive: true });
+    const stat = await fsp.stat(root);
+    if (!stat.isDirectory()) {
+      throw new Error('SHARED_FOLDER_PATH is not a directory');
+    }
+    await fsp.access(root, fs.constants.R_OK | fs.constants.W_OK);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Shared folder is not accessible';
     throw new ApiError({

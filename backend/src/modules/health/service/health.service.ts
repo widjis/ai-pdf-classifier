@@ -39,10 +39,17 @@ const decodeProcPath = (raw: string): string =>
     .replaceAll('\\012', '\n')
     .replaceAll('\\134', '\\');
 
-const findMountForPath = async (mountPath: string): Promise<{ source: string; fstype: string } | null> => {
+const normalizeResolvedPath = (resolvedPath: string): string => {
+  if (resolvedPath.length <= 1) return resolvedPath;
+  return resolvedPath.replace(/\/+$/g, '');
+};
+
+const findMountForPath = async (mountPath: string): Promise<{ source: string; fstype: string; target: string } | null> => {
   try {
     const raw = await fsp.readFile('/proc/mounts', 'utf8');
     const lines = raw.split('\n').filter((l) => l.trim().length > 0);
+    const normalized = normalizeResolvedPath(mountPath);
+    let best: { source: string; fstype: string; target: string } | null = null;
     for (const line of lines) {
       const parts = line.split(' ');
       if (parts.length < 3) continue;
@@ -51,10 +58,11 @@ const findMountForPath = async (mountPath: string): Promise<{ source: string; fs
       const targetRaw = parts[1];
       if (!sourceRaw || !targetRaw || !fstype) continue;
       const source = decodeProcPath(sourceRaw);
-      const target = decodeProcPath(targetRaw);
-      if (target === mountPath) return { source, fstype };
+      const target = normalizeResolvedPath(decodeProcPath(targetRaw));
+      if (normalized !== target && !normalized.startsWith(`${target}/`)) continue;
+      if (!best || target.length > best.target.length) best = { source, fstype, target };
     }
-    return null;
+    return best;
   } catch {
     return null;
   }
@@ -64,22 +72,23 @@ const checkSharedFolder = async (args: {
   sharedFolderPath: string;
   requireCifsMount: boolean;
 }): Promise<{ ok: boolean; error?: string }> => {
+  const requireCifsMount = args.requireCifsMount && process.platform === 'linux';
+  const resolved = path.resolve(args.sharedFolderPath);
+
+  if (requireCifsMount) {
+    const mount = await findMountForPath(resolved);
+    if (!mount) return { ok: false, error: `Shared folder is not mounted at ${normalizeResolvedPath(resolved)}` };
+    const allowed = new Set(['cifs', 'smbfs']);
+    if (!allowed.has(mount.fstype)) {
+      return { ok: false, error: `Shared folder is not mounted as CIFS (mount type: ${mount.fstype})` };
+    }
+  }
+
+  await fsp.mkdir(args.sharedFolderPath, { recursive: true }).catch(() => undefined);
   const base = await checkDir(args.sharedFolderPath);
   if (!base.ok) return base;
 
-  if (!args.requireCifsMount) return base;
-  if (process.platform !== 'linux') return base;
-
-  const resolved = path.resolve(args.sharedFolderPath);
-  const mount = await findMountForPath(resolved);
-  if (!mount) return { ok: false, error: `Shared folder is not mounted at ${resolved}` };
-
-  const allowed = new Set(['cifs', 'smbfs']);
-  if (!allowed.has(mount.fstype)) {
-    return { ok: false, error: `Shared folder is not mounted as CIFS (mount type: ${mount.fstype})` };
-  }
-
-  return { ok: true };
+  return base;
 };
 
 export const healthService = {
