@@ -127,7 +127,7 @@ export default function Header({ currentView, onNavigate, onToggleSidebar, authU
   };
 
   return (
-    <header className="h-16 border-b border-slate-200/70 bg-white/70 backdrop-blur-xl flex items-center justify-between px-4 sm:px-6 lg:px-8 flex-shrink-0">
+    <header className="relative z-[80] h-16 border-b border-slate-200/70 bg-white/70 backdrop-blur-xl flex items-center justify-between px-4 sm:px-6 lg:px-8 flex-shrink-0">
       <div className="flex items-center gap-4 md:gap-10 h-full min-w-0">
         {onToggleSidebar ? (
           <button
@@ -285,7 +285,7 @@ export default function Header({ currentView, onNavigate, onToggleSidebar, authU
             </button>
 
             {isUserMenuOpen && (
-              <div className="absolute right-0 mt-3 w-[280px] max-w-[calc(100vw-24px)] rounded-xl border border-slate-200 bg-white shadow-lg z-50 overflow-hidden">
+              <div className="absolute right-0 mt-3 w-[280px] max-w-[calc(100vw-24px)] rounded-xl border border-slate-200 bg-white shadow-lg z-[90] overflow-hidden">
                 <div className="px-4 py-3 border-b border-slate-200">
                   <div className="text-sm font-semibold text-slate-900 truncate">{authUser.displayName}</div>
                   <div className="text-xs text-slate-500 truncate">{authUser.email}</div>
